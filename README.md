@@ -9,7 +9,7 @@
 </p>
 
 > [!NOTE]
-> MockRelay is under active development. The frontend workspace prototype and the project and endpoint management APIs are implemented. The dynamic mock runtime and frontend–backend integration are the next V1 milestones.
+> MockRelay is under active development. The frontend workspace prototype, management APIs, and dynamic mock runtime are implemented. Frontend–backend integration is the next V1 milestone.
 
 ## Why MockRelay?
 
@@ -37,6 +37,9 @@ The project is also a practical exploration of Spring Boot API design, relationa
 - Nested endpoint-management REST API
 - Endpoint path validation, normalization, and route-conflict detection
 - Configurable response persistence for status, content type, headers, body, and delay
+- Dynamic mock runtime under `/mock/{projectKey}/...`
+- HTTP method and parameterized-path matching with static-route precedence
+- Runtime delivery of configured status, content type, enabled headers, body, and delay
 - Request validation and RFC-style `ProblemDetail` error responses
 - Global exception handling with `@RestControllerAdvice`
 - PostgreSQL schema managed by Flyway
@@ -46,7 +49,6 @@ The project is also a practical exploration of Spring Boot API design, relationa
 
 ### In progress
 
-- Dynamic `/mock/{projectKey}/...` request resolution
 - Connecting the React workspace to the backend API
 
 ### Later
@@ -100,7 +102,7 @@ Spring Boot modular monolith
    │
    ├── Project and endpoint configuration
    ├── Validation and exception handling
-   └── Dynamic mock runtime (in progress)
+   └── Dynamic mock runtime
    │
    │ JPA / Hibernate
    ▼
@@ -133,6 +135,7 @@ mock-api-tool/
 │       │   ├── exception/       Exceptions and global handling
 │       │   ├── project/         Project controllers and services
 │       │   ├── repository/      Spring Data repositories
+│       │   ├── runtime/         Dynamic mock request handling
 │       │   └── validation/      Reusable endpoint path validation
 │       └── resources/
 │           └── db/migration/    Flyway migrations
@@ -281,6 +284,7 @@ npm run build
 - **Parameterized paths have normalized signatures** in the data model so routes such as `/users/{id}` and `/users/{userId}` can be treated as conflicts.
 - **Entities are not returned from controllers.** Explicit DTOs keep persistence concerns out of the public API.
 - **Management and runtime routes remain separate** because they solve different problems and have different performance and security requirements.
+- **Configured delays block a request thread in V1** to keep the learning implementation direct; a scheduler or reactive runtime can replace this if concurrency becomes a real requirement.
 
 ## Design direction
 
@@ -288,4 +292,4 @@ MockRelay uses a compact, restrained developer-tool visual system: charcoal surf
 
 ## Project status
 
-This is a personal learning project being developed in public. The repository is intentionally documenting the progression from UI prototype to persistence, management API, and eventually the dynamic mock runtime.
+This is a personal learning project being developed in public. The repository intentionally documents the progression from UI prototype through persistence, management APIs, and dynamic request resolution.

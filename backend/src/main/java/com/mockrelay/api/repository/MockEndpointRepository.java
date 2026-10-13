@@ -3,6 +3,8 @@ package com.mockrelay.api.repository;
 import com.mockrelay.api.entity.HttpMethod;
 import com.mockrelay.api.entity.MockEndpoint;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,4 +28,17 @@ public interface MockEndpointRepository extends JpaRepository<MockEndpoint, UUID
     );
 
     Optional<MockEndpoint> findByIdAndProject_Id(UUID endpointId, UUID projectId);
+
+    @Query("""
+            select endpoint
+            from MockEndpoint endpoint
+            join fetch endpoint.response
+            where endpoint.project.projectKey = :projectKey
+              and endpoint.method = :method
+            order by endpoint.createdAt asc
+            """)
+    List<MockEndpoint> findRuntimeCandidates(
+            @Param("projectKey") String projectKey,
+            @Param("method") HttpMethod method
+    );
 }

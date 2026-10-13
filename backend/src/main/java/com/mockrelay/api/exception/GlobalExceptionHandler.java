@@ -67,6 +67,15 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(MockRouteNotFoundException.class)
+    public ProblemDetail handleMockRouteNotFound(MockRouteNotFoundException exception) {
+        return createProblem(
+                HttpStatus.NOT_FOUND,
+                "Mock route not found",
+                exception.getMessage()
+        );
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleRequestBodyValidation(MethodArgumentNotValidException exception) {
         List<ValidationError> errors = exception.getBindingResult()
