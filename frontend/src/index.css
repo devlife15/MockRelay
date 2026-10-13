@@ -1,0 +1,107 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+:root {
+  color-scheme: light;
+  font-family: "Manrope", system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  --bg-app: #f7f7f8;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f1f2f4;
+  --bg-hover: #eceef1;
+  --text-primary: #18181b;
+  --text-secondary: #60646c;
+  --text-muted: #8b8d98;
+  --border-default: #e1e3e6;
+  --border-strong: #c9ccd1;
+  --accent: #5b5bd6;
+  --accent-hover: #4d4dc4;
+  --accent-subtle: #eeeeff;
+  --success: #2f855a;
+  --warning: #b7791f;
+  --danger: #c2413b;
+  --method-get: #23815b;
+  --method-post: #a86512;
+  --method-put: #6558d3;
+  --method-patch: #147d92;
+  --method-delete: #c2413b;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-app: #0f1011;
+  --bg-surface: #151617;
+  --bg-subtle: #1c1d1f;
+  --bg-hover: #232528;
+  --text-primary: #f1f1f2;
+  --text-secondary: #a7a9ae;
+  --text-muted: #74777d;
+  --border-default: #2a2c30;
+  --border-strong: #3a3d42;
+  --accent: #7c7cf0;
+  --accent-hover: #8d8df5;
+  --accent-subtle: #252545;
+  --success: #67c99a;
+  --warning: #e0a458;
+  --danger: #ee7a83;
+  --method-get: #67c99a;
+  --method-post: #e0a458;
+  --method-put: #a79cff;
+  --method-patch: #58c4d8;
+  --method-delete: #ee7a83;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg-app);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--bg-app);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+::selection {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.method-get { color: var(--method-get); }
+.method-post { color: var(--method-post); }
+.method-put { color: var(--method-put); }
+.method-patch { color: var(--method-patch); }
+.method-delete { color: var(--method-delete); }
+
