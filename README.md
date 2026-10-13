@@ -9,7 +9,7 @@
 </p>
 
 > [!NOTE]
-> MockRelay is under active development. The frontend workspace prototype and project-management API are implemented. Endpoint management, the dynamic mock runtime, and frontend–backend integration are the next V1 milestones.
+> MockRelay is under active development. The frontend workspace prototype and the project and endpoint management APIs are implemented. The dynamic mock runtime and frontend–backend integration are the next V1 milestones.
 
 ## Why MockRelay?
 
@@ -34,6 +34,9 @@ The project is also a practical exploration of Spring Boot API design, relationa
 - Configurable response status, content type, headers, body, and delay UI
 - Collapsible, resizable endpoint test console
 - Spring Boot project-management REST API
+- Nested endpoint-management REST API
+- Endpoint path validation, normalization, and route-conflict detection
+- Configurable response persistence for status, content type, headers, body, and delay
 - Request validation and RFC-style `ProblemDetail` error responses
 - Global exception handling with `@RestControllerAdvice`
 - PostgreSQL schema managed by Flyway
@@ -43,8 +46,6 @@ The project is also a practical exploration of Spring Boot API design, relationa
 
 ### In progress
 
-- Endpoint-management REST API
-- Endpoint path normalization and route-conflict detection
 - Dynamic `/mock/{projectKey}/...` request resolution
 - Connecting the React workspace to the backend API
 
@@ -128,9 +129,11 @@ mock-api-tool/
 │       │   ├── audit/           JPA auditing configuration
 │       │   ├── dto/             API request and response models
 │       │   ├── entity/          JPA entities
+│       │   ├── endpoint/        Endpoint controllers and services
 │       │   ├── exception/       Exceptions and global handling
 │       │   ├── project/         Project controllers and services
-│       │   └── repository/      Spring Data repositories
+│       │   ├── repository/      Spring Data repositories
+│       │   └── validation/      Reusable endpoint path validation
 │       └── resources/
 │           └── db/migration/    Flyway migrations
 ├── DESIGN_SYSTEM.md

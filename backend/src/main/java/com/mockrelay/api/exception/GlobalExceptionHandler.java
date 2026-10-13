@@ -40,6 +40,33 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(EndpointNotFoundException.class)
+    public ProblemDetail handleEndpointNotFound(EndpointNotFoundException exception) {
+        return createProblem(
+                HttpStatus.NOT_FOUND,
+                "Endpoint not found",
+                exception.getMessage()
+        );
+    }
+
+    @ExceptionHandler(EndpointRouteConflictException.class)
+    public ProblemDetail handleEndpointRouteConflict(EndpointRouteConflictException exception) {
+        return createProblem(
+                HttpStatus.CONFLICT,
+                "Endpoint route conflict",
+                exception.getMessage()
+        );
+    }
+
+    @ExceptionHandler(InvalidEndpointPathException.class)
+    public ProblemDetail handleInvalidEndpointPath(InvalidEndpointPathException exception) {
+        return createProblem(
+                HttpStatus.BAD_REQUEST,
+                "Invalid endpoint path",
+                exception.getMessage()
+        );
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleRequestBodyValidation(MethodArgumentNotValidException exception) {
         List<ValidationError> errors = exception.getBindingResult()
