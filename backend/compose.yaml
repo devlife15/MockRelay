@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:18.6
+    environment:
+      POSTGRES_DB: mockrelay
+      POSTGRES_USER: mockrelay
+      POSTGRES_PASSWORD: mockrelay
+    ports:
+      - "15432:5432"
+    volumes:
+      - mockrelay-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mockrelay -d mockrelay"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mockrelay-postgres-data:

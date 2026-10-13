@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: mockrelay-api
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:15432/mockrelay}
+    username: ${DB_USERNAME:mockrelay}
+    password: ${DB_PASSWORD:mockrelay}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
