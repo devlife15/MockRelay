@@ -9,11 +9,16 @@ import com.mockrelay.api.dto.UpdateEndpointRequest;
 import com.mockrelay.api.endpoint.service.EndpointService;
 import com.mockrelay.api.entity.HttpMethod;
 import com.mockrelay.api.project.service.ProjectService;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +46,12 @@ class MockRuntimeControllerTests {
 
     @Autowired
     private EndpointService endpointService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Test
     void returnsTheConfiguredResponseForAParameterizedRoute() throws Exception {
@@ -172,6 +183,34 @@ class MockRuntimeControllerTests {
         mockMvc.perform(get("/mock/runtime-root/"))
                 .andExpect(status().isOk())
                 .andExpect(content().string("root response"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {204, 205, 304})
+    void suppressesStaleBodiesAndContentTypesForBodylessStatuses(int statusCode) throws Exception {
+        ProjectResponse project = createProject("runtime-bodyless-" + statusCode);
+        EndpointResponse endpoint = createEndpoint(
+                project,
+                HttpMethod.GET,
+                "/bodyless",
+                "Bodyless response"
+        );
+
+        jdbcTemplate.update(
+                """
+                update mock_responses
+                set status_code = ?, content_type = 'application/json', body = '{"stale":true}'
+                where endpoint_id = ?
+                """,
+                statusCode,
+                endpoint.id()
+        );
+        entityManager.clear();
+
+        mockMvc.perform(get("/mock/runtime-bodyless-" + statusCode + "/bodyless"))
+                .andExpect(status().is(statusCode))
+                .andExpect(header().doesNotExist(HttpHeaders.CONTENT_TYPE))
+                .andExpect(content().string(""));
     }
 
     private ProjectResponse createProject(String projectKey) {

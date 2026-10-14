@@ -15,6 +15,7 @@ import com.mockrelay.api.exception.InvalidEndpointPathException;
 import com.mockrelay.api.exception.ProjectNotFoundException;
 import com.mockrelay.api.repository.MockEndpointRepository;
 import com.mockrelay.api.repository.ProjectRepository;
+import com.mockrelay.api.response.ResponseBodyPolicy;
 import com.mockrelay.api.validation.EndpointPathNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -99,7 +100,7 @@ public class EndpointService {
         response.setStatusCode((short) request.statusCode());
         response.setContentType(request.contentType().trim());
         response.setHeaders(request.headers().stream().map(this::toHeader).toList());
-        response.setBody(request.body());
+        response.setBody(ResponseBodyPolicy.bodyForStorage(request.statusCode(), request.body()));
         response.setDelayMs(request.delayMs());
 
         return toResponse(endpointRepository.saveAndFlush(endpoint));

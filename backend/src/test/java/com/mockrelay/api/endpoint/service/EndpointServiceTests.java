@@ -12,6 +12,8 @@ import com.mockrelay.api.exception.EndpointRouteConflictException;
 import com.mockrelay.api.project.service.ProjectService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
@@ -125,6 +127,33 @@ class EndpointServiceTests {
 
         assertThatThrownBy(() -> endpointService.getEndpoint(other.id(), endpoint.id()))
                 .isInstanceOf(EndpointNotFoundException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {100, 199, 204, 205, 304})
+    void clearsTheStoredBodyForStatusesThatCannotHaveOne(int statusCode) {
+        ProjectResponse project = createProject("bodyless-storage-" + statusCode);
+        EndpointResponse endpoint = endpointService.createEndpoint(
+                project.id(),
+                new CreateEndpointRequest("Bodyless", HttpMethod.GET, "/bodyless")
+        );
+
+        EndpointResponse updated = endpointService.updateEndpoint(
+                project.id(),
+                endpoint.id(),
+                new UpdateEndpointRequest(
+                        endpoint.name(),
+                        endpoint.method(),
+                        endpoint.path(),
+                        statusCode,
+                        "application/json",
+                        List.of(),
+                        "{\"stale\":true}",
+                        0
+                )
+        );
+
+        assertThat(updated.body()).isEmpty();
     }
 
     private ProjectResponse createProject(String projectKey) {

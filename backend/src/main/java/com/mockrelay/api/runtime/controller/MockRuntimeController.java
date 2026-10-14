@@ -4,6 +4,7 @@ import com.mockrelay.api.entity.HttpMethod;
 import com.mockrelay.api.entity.ResponseHeader;
 import com.mockrelay.api.runtime.service.MockRuntimeService;
 import com.mockrelay.api.runtime.service.ResolvedMockResponse;
+import com.mockrelay.api.response.ResponseBodyPolicy;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -53,7 +54,10 @@ public class MockRuntimeController {
         }
 
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType(mockResponse.contentType()));
+        boolean bodyAllowed = ResponseBodyPolicy.allowsBody(mockResponse.statusCode());
+        if (bodyAllowed) {
+            headers.setContentType(MediaType.parseMediaType(mockResponse.contentType()));
+        }
         mockResponse.headers().stream()
                 .filter(ResponseHeader::isEnabled)
                 .filter(header -> !RESTRICTED_RESPONSE_HEADERS.contains(
@@ -61,9 +65,10 @@ public class MockRuntimeController {
                 ))
                 .forEach(header -> headers.add(header.getName(), header.getValue()));
 
-        String body = responseCanHaveBody(mockResponse.statusCode())
-                ? mockResponse.body()
-                : null;
+        String body = ResponseBodyPolicy.bodyForServing(
+                mockResponse.statusCode(),
+                mockResponse.body()
+        );
 
         return ResponseEntity
                 .status(HttpStatusCode.valueOf(mockResponse.statusCode()))
@@ -76,9 +81,5 @@ public class MockRuntimeController {
         String requestUri = request.getRequestURI();
         String path = requestUri.substring(runtimePrefix.length());
         return path.isEmpty() ? "/" : path;
-    }
-
-    private boolean responseCanHaveBody(int statusCode) {
-        return statusCode >= 200 && statusCode != 204 && statusCode != 304;
     }
 }
