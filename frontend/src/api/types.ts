@@ -26,9 +26,28 @@ export type CreateProjectRequest = {
   name: string
   description: string | null
   projectKey: string
+  templateKey?: string
 }
 
-export type UpdateProjectRequest = CreateProjectRequest
+export type UpdateProjectRequest = {
+  name: string
+  description: string | null
+  projectKey: string
+}
+
+export type StarterApiTemplateSummary = {
+  key: string
+  name: string
+  description: string
+  category: string
+  tags: string[]
+  behaviors: string[]
+  complexity: string
+  featured: boolean
+  limitations: string[]
+  endpointCount: number
+  scenarioCount: number
+}
 
 export type ResponseHeader = {
   id: string
