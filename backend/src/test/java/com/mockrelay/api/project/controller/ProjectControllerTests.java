@@ -92,6 +92,82 @@ class ProjectControllerTests {
     }
 
     @Test
+    void createsAProjectFromAStarterTemplate() throws Exception {
+        mockMvc.perform(post("/api/projects")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Loyalty sandbox",
+                                  "description": "Created from a starter template",
+                                  "projectKey": "loyalty-controller-test",
+                                  "templateKey": "loyalty-points"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(header().exists("Location"))
+                .andExpect(jsonPath("$.projectKey").value("loyalty-controller-test"))
+                .andExpect(jsonPath("$.endpointCount").value(7));
+    }
+
+    @Test
+    void servesMocksImmediatelyAfterTemplateInstantiation() throws Exception {
+        mockMvc.perform(post("/api/projects")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Runtime loyalty sandbox",
+                                  "description": null,
+                                  "projectKey": "loyalty-runtime-test",
+                                  "templateKey": "loyalty-points"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/mock/loyalty-runtime-test/tiers"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/json"))
+                .andExpect(jsonPath("$.data.length()").value(4))
+                .andExpect(jsonPath("$.data[3].name").value("Platinum"));
+
+        mockMvc.perform(get("/mock/loyalty-runtime-test/members"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "24"))
+                .andExpect(jsonPath("$.data.length()").value(10))
+                .andExpect(jsonPath("$.pagination.totalItems").value(24));
+
+        mockMvc.perform(post("/mock/loyalty-runtime-test/redemptions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "memberId": "member_1004",
+                                  "rewardId": "reward_1001"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(header().string(
+                        "Location",
+                        "/redemptions/redemption_1046"
+                ))
+                .andExpect(jsonPath("$.status").value("pending"));
+    }
+
+    @Test
+    void returnsNotFoundForAnUnknownStarterTemplate() throws Exception {
+        mockMvc.perform(post("/api/projects")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Unknown template",
+                                  "description": null,
+                                  "projectKey": "unknown-template-controller-test",
+                                  "templateKey": "missing-template"
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Starter API template not found"));
+    }
+
+    @Test
     void returnsBadRequestForAnInvalidProjectId() throws Exception {
         mockMvc.perform(get("/api/projects/not-a-uuid"))
                 .andExpect(status().isBadRequest())

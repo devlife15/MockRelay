@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "key": "users-api",
+  "name": "Users API",
+  "description": "A ready-to-use users service with success, empty, validation, failure, and slow-response scenarios.",
+  "category": "essentials",
+  "tags": ["users", "rest", "frontend"],
+  "behaviors": [
+    "empty-state",
+    "validation-errors",
+    "error-heavy",
+    "scenario-driven",
+    "delayed",
+    "custom-headers"
+  ],
+  "complexity": "basic",
+  "featured": true,
+  "limitations": [
+    "Creating a user returns a configured response but does not persist a new record.",
+    "Select response scenarios manually to test alternate outcomes."
+  ],
+  "endpoints": [
+    {
+      "name": "List users",
+      "method": "GET",
+      "path": "/users",
+      "scenarios": [
+        {
+          "name": "Success",
+          "active": true,
+          "statusCode": 200,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {
+            "users": [
+              {
+                "id": 1,
+                "name": "Aarav Mehta",
+                "email": "aarav@example.com",
+                "role": "developer"
+              },
+              {
+                "id": 2,
+                "name": "Maya Chen",
+                "email": "maya@example.com",
+                "role": "designer"
+              }
+            ],
+            "total": 2
+          },
+          "delayMs": 0
+        },
+        {
+          "name": "Empty list",
+          "active": false,
+          "statusCode": 200,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {
+            "users": [],
+            "total": 0
+          },
+          "delayMs": 0
+        },
+        {
+          "name": "Server error",
+          "active": false,
+          "statusCode": 500,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {
+            "message": "Unable to load users"
+          },
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "name": "Get user",
+      "method": "GET",
+      "path": "/users/{id}",
+      "scenarios": [
+        {
+          "name": "Success",
+          "active": true,
+          "statusCode": 200,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {
+            "id": 1,
+            "name": "Aarav Mehta",
+            "email": "aarav@example.com",
+            "role": "developer"
+          },
+          "delayMs": 0
+        },
+        {
+          "name": "Not found",
+          "active": false,
+          "statusCode": 404,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {
+            "message": "User not found"
+          },
+          "delayMs": 0
+        },
+        {
+          "name": "Slow response",
+          "active": false,
+          "statusCode": 200,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {
+            "id": 1,
+            "name": "Aarav Mehta",
+            "email": "aarav@example.com",
+            "role": "developer"
+          },
+          "delayMs": 3000
+        }
+      ]
+    },
+    {
+      "name": "Create user",
+      "method": "POST",
+      "path": "/users",
+      "scenarios": [
+        {
+          "name": "Created",
+          "active": true,
+          "statusCode": 201,
+          "contentType": "application/json",
+          "headers": [
+            {
+              "name": "Location",
+              "value": "/users/3",
+              "enabled": true
+            }
+          ],
+          "body": {
+            "id": 3,
+            "name": "New user",
+            "email": "new.user@example.com",
+            "role": "member"
+          },
+          "delayMs": 0
+        },
+        {
+          "name": "Validation error",
+          "active": false,
+          "statusCode": 400,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {
+            "message": "Validation failed",
+            "errors": {
+              "email": "Email is required"
+            }
+          },
+          "delayMs": 0
+        }
+      ]
+    }
+  ]
+}

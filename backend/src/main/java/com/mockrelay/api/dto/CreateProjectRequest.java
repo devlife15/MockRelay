@@ -18,6 +18,17 @@ public record CreateProjectRequest(
                 regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$",
                 message = "Project key may contain lowercase letters, numbers, and single hyphens"
         )
-        String projectKey
+        String projectKey,
+
+        @Size(max = 64, message = "Template key must be at most 64 characters")
+        @Pattern(
+                regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                message = "Template key may contain lowercase letters, numbers, and single hyphens"
+        )
+        String templateKey
 ) {
+
+    public CreateProjectRequest(String name, String description, String projectKey) {
+        this(name, description, projectKey, null);
+    }
 }

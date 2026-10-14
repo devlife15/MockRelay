@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "key": "loyalty-points",
+  "name": "Loyalty Points",
+  "description": "A realistic loyalty programme API with members, tiers, points history, rewards, redemptions, pagination, and business error scenarios.",
+  "category": "loyalty-retail",
+  "tags": ["loyalty", "rewards", "retail", "points", "members"],
+  "behaviors": [
+    "paginated",
+    "error-heavy",
+    "scenario-driven",
+    "state-machine",
+    "empty-state",
+    "validation-errors",
+    "custom-headers"
+  ],
+  "complexity": "advanced",
+  "featured": true,
+  "limitations": [
+    "Query parameters describe the intended API contract but do not dynamically filter, sort, or paginate responses yet.",
+    "Path parameters do not select seed records automatically; choose the required response scenario manually.",
+    "Creating a redemption returns a configured response but does not change member balances or persist a redemption."
+  ],
+  "endpoints": [
+    {
+      "name": "List tiers",
+      "method": "GET",
+      "path": "/tiers",
+      "scenarios": [
+        {
+          "name": "Tiers available",
+          "active": true,
+          "statusCode": 200,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {
+            "data": [
+              {"id": "tier_1001", "name": "Bronze", "minimumPoints": 0, "earningMultiplier": 1.0, "benefits": ["Earn 1 point per currency unit spent", "Welcome bonus on joining"]},
+              {"id": "tier_1002", "name": "Silver", "minimumPoints": 500, "earningMultiplier": 1.25, "benefits": ["25% bonus points on purchases", "Early access to member offers"]},
+              {"id": "tier_1003", "name": "Gold", "minimumPoints": 2000, "earningMultiplier": 1.5, "benefits": ["50% bonus points on purchases", "Free standard shipping", "Birthday month bonus"]},
+              {"id": "tier_1004", "name": "Platinum", "minimumPoints": 4000, "earningMultiplier": 2.0, "benefits": ["Double points on purchases", "Free express shipping", "Priority support", "Exclusive member events"]}
+            ]
+          },
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "name": "List members",
+      "method": "GET",
+      "path": "/members",
+      "scenarios": [
+        {
+          "name": "Members available",
+          "active": true,
+          "statusCode": 200,
+          "contentType": "application/json",
+          "headers": [{"name": "X-Total-Count", "value": "24", "enabled": true}],
+          "body": {
+            "data": [
+              {"id": "member_1001", "name": "Maya Fernandes", "email": "maya.fernandes@example.com", "tierId": "tier_1002", "availablePoints": 379, "pendingPoints": 0, "joinedAt": "2025-09-11T13:42:00Z", "status": "inactive"},
+              {"id": "member_1002", "name": "Arjun Sethi", "email": "arjun.sethi@example.com", "tierId": "tier_1001", "availablePoints": 229, "pendingPoints": 0, "joinedAt": "2025-07-21T20:40:00Z", "status": "inactive"},
+              {"id": "member_1003", "name": "Chloe Brandt", "email": "chloe.brandt@example.com", "tierId": "tier_1002", "availablePoints": 458, "pendingPoints": 0, "joinedAt": "2025-08-11T18:25:00Z", "status": "suspended"},
+              {"id": "member_1004", "name": "Kofi Mensah", "email": "kofi.mensah@example.com", "tierId": "tier_1004", "availablePoints": 3105, "pendingPoints": 0, "joinedAt": "2025-04-10T20:16:00Z", "status": "active"},
+              {"id": "member_1005", "name": "Ines Duarte", "email": "ines.duarte@example.com", "tierId": "tier_1004", "availablePoints": 3362, "pendingPoints": 170, "joinedAt": "2025-04-24T17:12:00Z", "status": "active"},
+              {"id": "member_1006", "name": "Rohan Kulkarni", "email": "rohan.kulkarni@example.com", "tierId": "tier_1001", "availablePoints": 65, "pendingPoints": 0, "joinedAt": "2025-05-09T19:21:00Z", "status": "active"},
+              {"id": "member_1007", "name": "Sofia Lindqvist", "email": "sofia.lindqvist@example.com", "tierId": "tier_1003", "availablePoints": 1500, "pendingPoints": 0, "joinedAt": "2025-04-25T09:24:00Z", "status": "active"},
+              {"id": "member_1008", "name": "Tariq Haddad", "email": "tariq.haddad@example.com", "tierId": "tier_1002", "availablePoints": 378, "pendingPoints": 0, "joinedAt": "2025-05-04T08:54:00Z", "status": "active"},
+              {"id": "member_1009", "name": "Priya Raman", "email": "priya.raman@example.com", "tierId": "tier_1001", "availablePoints": 193, "pendingPoints": 80, "joinedAt": "2026-04-09T08:23:00Z", "status": "active"},
+              {"id": "member_1010", "name": "Noah Whitfield", "email": "noah.whitfield@example.com", "tierId": "tier_1003", "availablePoints": 1437, "pendingPoints": 135, "joinedAt": "2025-05-10T14:59:00Z", "status": "active"}
+            ],
+            "pagination": {"page": 1, "limit": 10, "totalItems": 24, "totalPages": 3, "hasNext": true, "hasPrevious": false}
+          },
+          "delayMs": 0
+        },
+        {
+          "name": "Empty result",
+          "active": false,
+          "statusCode": 200,
+          "contentType": "application/json",
+          "headers": [{"name": "X-Total-Count", "value": "0", "enabled": true}],
+          "body": {"data": [], "pagination": {"page": 1, "limit": 10, "totalItems": 0, "totalPages": 0, "hasNext": false, "hasPrevious": false}},
+          "delayMs": 0
+        },
+        {
+          "name": "Invalid pagination",
+          "active": false,
+          "statusCode": 400,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {"code": "INVALID_PAGINATION", "message": "Page must be at least 1 and limit must be between 1 and 100.", "fieldErrors": {"page": "must be at least 1"}, "timestamp": "2026-10-15T10:00:00Z"},
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "name": "Get member",
+      "method": "GET",
+      "path": "/members/{id}",
+      "scenarios": [
+        {
+          "name": "Active member",
+          "active": true,
+          "statusCode": 200,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {"id": "member_1004", "name": "Kofi Mensah", "email": "kofi.mensah@example.com", "tierId": "tier_1004", "availablePoints": 3105, "pendingPoints": 0, "joinedAt": "2025-04-10T20:16:00Z", "status": "active"},
+          "delayMs": 0
+        },
+        {
+          "name": "Suspended member",
+          "active": false,
+          "statusCode": 200,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {"id": "member_1003", "name": "Chloe Brandt", "email": "chloe.brandt@example.com", "tierId": "tier_1002", "availablePoints": 458, "pendingPoints": 0, "joinedAt": "2025-08-11T18:25:00Z", "status": "suspended"},
+          "delayMs": 0
+        },
+        {
+          "name": "Member not found",
+          "active": false,
+          "statusCode": 404,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {"code": "MEMBER_NOT_FOUND", "message": "No loyalty member exists with id member_9999.", "timestamp": "2026-10-15T10:00:00Z"},
+          "delayMs": 0
+        },
+        {
+          "name": "Invalid member ID",
+          "active": false,
+          "statusCode": 400,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {"code": "INVALID_MEMBER_ID", "message": "Member ID must use the format member_{number}.", "fieldErrors": {"id": "must match member_{number}"}, "timestamp": "2026-10-15T10:00:00Z"},
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "name": "List member points ledger",
+      "method": "GET",
+      "path": "/members/{id}/points-ledger",
+      "scenarios": [
+        {
+          "name": "Ledger entries available",
+          "active": true,
+          "statusCode": 200,
+          "contentType": "application/json",
+          "headers": [{"name": "X-Total-Count", "value": "31", "enabled": true}],
+          "body": {
+            "data": [
+              {"id": "ledger_1307", "memberId": "member_1004", "type": "redeem", "points": -150, "description": "Redeemed: Free Coffee Voucher", "referenceId": "redemption_1042", "expiresAt": null, "createdAt": "2026-09-25T20:49:00Z"},
+              {"id": "ledger_1293", "memberId": "member_1004", "type": "earn", "points": 212, "description": "Mobile app purchase", "referenceId": null, "expiresAt": "2027-09-11T17:06:00Z", "createdAt": "2026-09-11T17:06:00Z"},
+              {"id": "ledger_1287", "memberId": "member_1004", "type": "earn", "points": 206, "description": "Online purchase", "referenceId": null, "expiresAt": "2027-09-03T08:43:00Z", "createdAt": "2026-09-03T08:43:00Z"}
+            ],
+            "pagination": {"page": 1, "limit": 3, "totalItems": 31, "totalPages": 11, "hasNext": true, "hasPrevious": false}
+          },
+          "delayMs": 0
+        },
+        {
+          "name": "Empty ledger",
+          "active": false,
+          "statusCode": 200,
+          "contentType": "application/json",
+          "headers": [{"name": "X-Total-Count", "value": "0", "enabled": true}],
+          "body": {"data": [], "pagination": {"page": 1, "limit": 10, "totalItems": 0, "totalPages": 0, "hasNext": false, "hasPrevious": false}},
+          "delayMs": 0
+        },
+        {
+          "name": "Member not found",
+          "active": false,
+          "statusCode": 404,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {"code": "MEMBER_NOT_FOUND", "message": "No loyalty member exists with id member_9999.", "timestamp": "2026-10-15T10:00:00Z"},
+          "delayMs": 0
+        },
+        {
+          "name": "Invalid ledger type",
+          "active": false,
+          "statusCode": 400,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {"code": "INVALID_LEDGER_TYPE", "message": "Ledger type must be one of the supported transaction types.", "fieldErrors": {"type": "must be one of earn, bonus, redeem, refund, adjustment, expire, or pending"}, "timestamp": "2026-10-15T10:00:00Z"},
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "name": "List rewards",
+      "method": "GET",
+      "path": "/rewards",
+      "scenarios": [
+        {
+          "name": "Rewards available",
+          "active": true,
+          "statusCode": 200,
+          "contentType": "application/json",
+          "headers": [{"name": "X-Total-Count", "value": "10", "enabled": true}],
+          "body": {
+            "data": [
+              {"id": "reward_1001", "name": "Free Coffee Voucher", "description": "One free hot or iced coffee at any participating store.", "pointsCost": 150, "stockStatus": "in-stock", "expiresAt": null},
+              {"id": "reward_1002", "name": "Store Credit Voucher (Small)", "description": "Redeemable against any in-store or online purchase.", "pointsCost": 500, "stockStatus": "in-stock", "expiresAt": null},
+              {"id": "reward_1003", "name": "Store Credit Voucher (Medium)", "description": "Redeemable against any in-store or online purchase.", "pointsCost": 900, "stockStatus": "in-stock", "expiresAt": null}
+            ],
+            "pagination": {"page": 1, "limit": 3, "totalItems": 10, "totalPages": 4, "hasNext": true, "hasPrevious": false}
+          },
+          "delayMs": 0
+        },
+        {
+          "name": "Empty reward result",
+          "active": false,
+          "statusCode": 200,
+          "contentType": "application/json",
+          "headers": [{"name": "X-Total-Count", "value": "0", "enabled": true}],
+          "body": {"data": [], "pagination": {"page": 1, "limit": 10, "totalItems": 0, "totalPages": 0, "hasNext": false, "hasPrevious": false}},
+          "delayMs": 0
+        },
+        {
+          "name": "Invalid points filter",
+          "active": false,
+          "statusCode": 400,
+          "contentType": "application/json",
+          "headers": [],
+          "body": {"code": "INVALID_POINTS_FILTER", "message": "Maximum points cost must be zero or greater.", "fieldErrors": {"maxPointsCost": "must be zero or greater"}, "timestamp": "2026-10-15T10:00:00Z"},
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "name": "Get redemption",
+      "method": "GET",
+      "path": "/redemptions/{id}",
+      "scenarios": [
+        {"name": "Fulfilled redemption", "active": true, "statusCode": 200, "contentType": "application/json", "headers": [], "body": {"id": "redemption_1001", "memberId": "member_1008", "rewardId": "reward_1001", "pointsSpent": 150, "status": "fulfilled", "createdAt": "2025-06-12T20:18:00Z"}, "delayMs": 0},
+        {"name": "Pending redemption", "active": false, "statusCode": 200, "contentType": "application/json", "headers": [], "body": {"id": "redemption_1040", "memberId": "member_1011", "rewardId": "reward_1001", "pointsSpent": 150, "status": "pending", "createdAt": "2026-09-25T09:28:00Z"}, "delayMs": 0},
+        {"name": "Cancelled redemption", "active": false, "statusCode": 200, "contentType": "application/json", "headers": [], "body": {"id": "redemption_1008", "memberId": "member_1017", "rewardId": "reward_1004", "pointsSpent": 300, "status": "cancelled", "createdAt": "2025-11-22T15:49:00Z"}, "delayMs": 0},
+        {"name": "Redemption not found", "active": false, "statusCode": 404, "contentType": "application/json", "headers": [], "body": {"code": "REDEMPTION_NOT_FOUND", "message": "No redemption exists with id redemption_9999.", "timestamp": "2026-10-15T10:00:00Z"}, "delayMs": 0}
+      ]
+    },
+    {
+      "name": "Create redemption",
+      "method": "POST",
+      "path": "/redemptions",
+      "scenarios": [
+        {
+          "name": "Redemption accepted",
+          "active": true,
+          "statusCode": 201,
+          "contentType": "application/json",
+          "headers": [{"name": "Location", "value": "/redemptions/redemption_1046", "enabled": true}],
+          "body": {"id": "redemption_1046", "memberId": "member_1004", "rewardId": "reward_1001", "pointsSpent": 150, "status": "pending", "createdAt": "2026-10-15T10:00:00Z"},
+          "delayMs": 0
+        },
+        {"name": "Invalid request body", "active": false, "statusCode": 400, "contentType": "application/json", "headers": [], "body": {"code": "VALIDATION_FAILED", "message": "The redemption request contains invalid fields.", "fieldErrors": {"memberId": "must not be blank", "rewardId": "must not be blank"}, "timestamp": "2026-10-15T10:00:00Z"}, "delayMs": 0},
+        {"name": "Suspended member", "active": false, "statusCode": 403, "contentType": "application/json", "headers": [], "body": {"code": "MEMBER_SUSPENDED", "message": "Suspended members cannot redeem rewards.", "timestamp": "2026-10-15T10:00:00Z"}, "delayMs": 0},
+        {"name": "Member not found", "active": false, "statusCode": 404, "contentType": "application/json", "headers": [], "body": {"code": "MEMBER_NOT_FOUND", "message": "No loyalty member exists with id member_9999.", "timestamp": "2026-10-15T10:00:00Z"}, "delayMs": 0},
+        {"name": "Reward not found", "active": false, "statusCode": 404, "contentType": "application/json", "headers": [], "body": {"code": "REWARD_NOT_FOUND", "message": "No reward exists with id reward_9999.", "timestamp": "2026-10-15T10:00:00Z"}, "delayMs": 0},
+        {"name": "Reward unavailable", "active": false, "statusCode": 409, "contentType": "application/json", "headers": [], "body": {"code": "REWARD_UNAVAILABLE", "message": "The selected reward is currently out of stock.", "timestamp": "2026-10-15T10:00:00Z"}, "delayMs": 0},
+        {"name": "Insufficient points", "active": false, "statusCode": 422, "contentType": "application/json", "headers": [], "body": {"code": "INSUFFICIENT_POINTS", "message": "The member does not have enough available points for this reward.", "fieldErrors": {"rewardId": "requires 500 points but the member has 229 available"}, "timestamp": "2026-10-15T10:00:00Z"}, "delayMs": 0}
+      ]
+    }
+  ]
+}

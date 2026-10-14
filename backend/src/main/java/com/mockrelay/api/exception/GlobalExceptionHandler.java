@@ -80,6 +80,17 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(StarterApiTemplateNotFoundException.class)
+    public ProblemDetail handleStarterApiTemplateNotFound(
+            StarterApiTemplateNotFoundException exception
+    ) {
+        return createProblem(
+                HttpStatus.NOT_FOUND,
+                "Starter API template not found",
+                exception.getMessage()
+        );
+    }
+
     @ExceptionHandler(InvalidEndpointPathException.class)
     public ProblemDetail handleInvalidEndpointPath(InvalidEndpointPathException exception) {
         return createProblem(

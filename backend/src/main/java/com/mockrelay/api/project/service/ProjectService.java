@@ -7,6 +7,7 @@ import com.mockrelay.api.entity.Project;
 import com.mockrelay.api.exception.ProjectKeyAlreadyExistsException;
 import com.mockrelay.api.exception.ProjectNotFoundException;
 import com.mockrelay.api.repository.ProjectRepository;
+import com.mockrelay.api.template.StarterApiTemplateInstantiator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ import java.util.UUID;
 public class ProjectService {
 
     private final ProjectRepository projectRepository;
+    private final StarterApiTemplateInstantiator templateInstantiator;
 
     @Transactional
     public ProjectResponse createProject(CreateProjectRequest request) {
@@ -29,6 +31,11 @@ public class ProjectService {
         project.setName(request.name().trim());
         project.setDescription(trimToNull(request.description()));
         project.setProjectKey(projectKey);
+
+        String templateKey = trimToNull(request.templateKey());
+        if (templateKey != null) {
+            templateInstantiator.instantiateInto(project, templateKey);
+        }
 
         return toResponse(projectRepository.saveAndFlush(project));
     }
