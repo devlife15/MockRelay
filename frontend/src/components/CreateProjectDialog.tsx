@@ -1,12 +1,13 @@
 import { useId, useState, type FormEvent } from 'react'
 import { Dialog } from 'radix-ui'
 import { X } from 'lucide-react'
-import type { Project } from '../App'
+import { getErrorMessage } from '../api/client'
+import type { CreateProjectRequest } from '../api/types'
 import { Button } from './ui/Button'
 import { IconButton } from './ui/IconButton'
 
 type CreateProjectDialogProps = {
-  onCreate: (project: Project) => void
+  onCreate: (request: CreateProjectRequest) => Promise<void>
   onOpenChange: (open: boolean) => void
   open: boolean
 }
@@ -30,6 +31,8 @@ export function CreateProjectDialog({ onCreate, onOpenChange, open }: CreateProj
   const [projectKey, setProjectKey] = useState('')
   const [keyWasEdited, setKeyWasEdited] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const trimmedName = name.trim()
   const normalizedKey = toProjectKey(projectKey)
@@ -47,6 +50,7 @@ export function CreateProjectDialog({ onCreate, onOpenChange, open }: CreateProj
     setProjectKey('')
     setKeyWasEdited(false)
     setSubmitted(false)
+    setSubmitError('')
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -54,22 +58,25 @@ export function CreateProjectDialog({ onCreate, onOpenChange, open }: CreateProj
     onOpenChange(nextOpen)
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSubmitted(true)
     if (!trimmedName || !normalizedKey) return
 
-    const project = {
-      id: `${normalizedKey}-${Date.now()}`,
-      name: trimmedName,
-      description: description.trim(),
-      key: normalizedKey,
-      endpointCount: 0,
-      updatedAt: 'Just now',
+    setIsSubmitting(true)
+    setSubmitError('')
+    try {
+      await onCreate({
+        name: trimmedName,
+        description: description.trim() || null,
+        projectKey: normalizedKey,
+      })
+      resetForm()
+    } catch (error) {
+      setSubmitError(getErrorMessage(error))
+    } finally {
+      setIsSubmitting(false)
     }
-
-    resetForm()
-    onCreate(project)
   }
 
   return (
@@ -146,11 +153,12 @@ export function CreateProjectDialog({ onCreate, onOpenChange, open }: CreateProj
                   <p className="mt-1 text-[11px] leading-4 text-[var(--text-muted)]">Used in the callable URL. Lowercase letters, numbers, and hyphens only.</p>
                 )}
               </div>
+              {submitError ? <p className="text-[11px] leading-4 text-[var(--danger)]" role="alert">{submitError}</p> : null}
             </div>
 
             <div className="flex justify-end gap-2 border-t border-[var(--border-default)] px-5 py-3">
               <Dialog.Close asChild><Button size="small">Cancel</Button></Dialog.Close>
-              <Button size="small" type="submit" variant="primary">Create project</Button>
+              <Button disabled={isSubmitting} size="small" type="submit" variant="primary">{isSubmitting ? 'Creating…' : 'Create project'}</Button>
             </div>
           </form>
         </Dialog.Content>

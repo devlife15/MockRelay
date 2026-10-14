@@ -1,7 +1,8 @@
 import { useId, useState, type FormEvent } from 'react'
 import { Dialog } from 'radix-ui'
 import { X } from 'lucide-react'
-import type { Endpoint, HttpMethod } from '../App'
+import { getErrorMessage } from '../api/client'
+import type { CreateEndpointRequest, Endpoint, HttpMethod } from '../api/types'
 import { validateEndpointPath } from '../utils/endpointValidation'
 import { Button } from './ui/Button'
 import { IconButton } from './ui/IconButton'
@@ -10,7 +11,7 @@ const methods: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
 
 type CreateEndpointDialogProps = {
   endpoints: Endpoint[]
-  onCreate: (endpoint: Endpoint) => void
+  onCreate: (request: CreateEndpointRequest) => Promise<void>
   onOpenChange: (open: boolean) => void
   open: boolean
   projectKey: string
@@ -25,6 +26,8 @@ export function CreateEndpointDialog({ endpoints, onCreate, onOpenChange, open, 
   const [path, setPath] = useState('')
   const [name, setName] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const trimmedPath = path.trim()
   const pathError = submitted ? validateEndpointPath(trimmedPath) : ''
@@ -35,6 +38,7 @@ export function CreateEndpointDialog({ endpoints, onCreate, onOpenChange, open, 
     setPath('')
     setName('')
     setSubmitted(false)
+    setSubmitError('')
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -42,26 +46,22 @@ export function CreateEndpointDialog({ endpoints, onCreate, onOpenChange, open, 
     onOpenChange(nextOpen)
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSubmitted(true)
 
     if (validateEndpointPath(trimmedPath) || endpoints.some((endpoint) => endpoint.method === method && endpoint.path === trimmedPath)) return
 
-    const endpoint: Endpoint = {
-      id: `endpoint-${Date.now()}`,
-      name: name.trim(),
-      method,
-      path: trimmedPath,
-      statusCode: 200,
-      contentType: 'application/json',
-      delay: 0,
-      body: '{\n  "message": "Mock response"\n}',
-      headers: [],
+    setIsSubmitting(true)
+    setSubmitError('')
+    try {
+      await onCreate({ name: name.trim(), method, path: trimmedPath })
+      resetForm()
+    } catch (error) {
+      setSubmitError(getErrorMessage(error))
+    } finally {
+      setIsSubmitting(false)
     }
-
-    resetForm()
-    onCreate(endpoint)
   }
 
   const visibleError = pathError || (isDuplicate ? `${method} ${trimmedPath} already exists.` : '')
@@ -139,11 +139,12 @@ export function CreateEndpointDialog({ endpoints, onCreate, onOpenChange, open, 
                   http://localhost:8080/mock/{projectKey}{trimmedPath || '/users/{id}'}
                 </div>
               </div>
+              {submitError ? <p className="text-[11px] leading-4 text-[var(--danger)]" role="alert">{submitError}</p> : null}
             </div>
 
             <div className="flex justify-end gap-2 border-t border-[var(--border-default)] px-5 py-3">
               <Dialog.Close asChild><Button size="small">Cancel</Button></Dialog.Close>
-              <Button size="small" type="submit" variant="primary">Create endpoint</Button>
+              <Button disabled={isSubmitting} size="small" type="submit" variant="primary">{isSubmitting ? 'Creating…' : 'Create endpoint'}</Button>
             </div>
           </form>
         </Dialog.Content>

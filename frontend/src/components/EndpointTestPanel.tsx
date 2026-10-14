@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Copy, Send } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import type { Endpoint } from '../App'
+import type { Endpoint } from '../api/types'
+import { isJsonContentType } from '../utils/responseBody'
 import { Button } from './ui/Button'
 import { IconButton } from './ui/IconButton'
 
@@ -9,6 +10,8 @@ type ResultTab = 'body' | 'headers'
 
 type TestResult = {
   state: Exclude<ResultState, 'idle' | 'sending'>
+  status: number
+  statusText: string
   duration: number
   size: number
   body: string
@@ -17,8 +20,10 @@ type TestResult = {
 
 type EndpointTestPanelProps = {
   endpoint: Endpoint
+  hasUnsavedChanges: boolean
   isActive: boolean
   mockUrl: string
+  projectKey: string
 }
 
 const WIDTH_KEY = 'mockrelay:test-panel-width'
@@ -27,12 +32,15 @@ const DEFAULT_WIDTH = 360
 const MIN_WIDTH = 300
 const MAX_WIDTH = 520
 const COLLAPSED_WIDTH = 36
-const TIMEOUT_MS = 5000
+const MIN_TIMEOUT_MS = 5000
+const TIMEOUT_BUFFER_MS = 5000
 
 const statusLabels: Record<number, string> = {
   200: 'OK',
   201: 'Created',
   204: 'No Content',
+  205: 'Reset Content',
+  304: 'Not Modified',
   400: 'Bad Request',
   404: 'Not Found',
   500: 'Internal Server Error',
@@ -57,7 +65,7 @@ function formatSize(bytes: number) {
 }
 
 function formatResponseBody(body: string, contentType: string) {
-  if (contentType !== 'application/json' || !body) return body
+  if (!body || !isJsonContentType(contentType)) return body
   try {
     return JSON.stringify(JSON.parse(body), null, 2)
   } catch {
@@ -65,22 +73,25 @@ function formatResponseBody(body: string, contentType: string) {
   }
 }
 
-export function EndpointTestPanel({ endpoint, isActive, mockUrl }: EndpointTestPanelProps) {
+function requestTimeoutMs(delayMs: number) {
+  return Math.max(MIN_TIMEOUT_MS, delayMs + TIMEOUT_BUFFER_MS)
+}
+
+export function EndpointTestPanel({ endpoint, hasUnsavedChanges, isActive, mockUrl, projectKey }: EndpointTestPanelProps) {
   const [isOpen, setIsOpen] = useState(readStoredOpen)
   const [width, setWidth] = useState(readStoredWidth)
   const [resultState, setResultState] = useState<ResultState>('idle')
   const [result, setResult] = useState<TestResult | null>(null)
   const [activeTab, setActiveTab] = useState<ResultTab>('body')
   const [copied, setCopied] = useState(false)
-  const sendTimer = useRef<number | null>(null)
+  const requestController = useRef<AbortController | null>(null)
   const copiedTimer = useRef<number | null>(null)
 
-  const responseHeaders = useMemo(() => {
-    const configured = (endpoint.headers ?? [])
-      .filter((header) => header.enabled && header.name.trim())
-      .map((header) => ({ name: header.name.trim(), value: header.value }))
-    return [{ name: 'Content-Type', value: endpoint.contentType }, ...configured]
-  }, [endpoint.contentType, endpoint.headers])
+  const testPath = useMemo(
+    () => `/mock/${projectKey}${endpoint.path.replace(/\{[A-Za-z][A-Za-z0-9_]*}/g, '1')}`,
+    [endpoint.path, projectKey],
+  )
+  const testUrl = mockUrl.replace(/\{[A-Za-z][A-Za-z0-9_]*}/g, '1')
 
   function setPanelOpen(next: boolean) {
     setIsOpen(next)
@@ -108,7 +119,7 @@ export function EndpointTestPanel({ endpoint, isActive, mockUrl }: EndpointTestP
   }, [isActive])
 
   useEffect(() => () => {
-    if (sendTimer.current) window.clearTimeout(sendTimer.current)
+    requestController.current?.abort()
     if (copiedTimer.current) window.clearTimeout(copiedTimer.current)
   }, [])
 
@@ -138,35 +149,54 @@ export function EndpointTestPanel({ endpoint, isActive, mockUrl }: EndpointTestP
     window.addEventListener('pointerup', handlePointerUp)
   }
 
-  function sendRequest() {
-    if (sendTimer.current) window.clearTimeout(sendTimer.current)
+  async function sendRequest() {
+    if (hasUnsavedChanges || resultState === 'sending') return
+    requestController.current?.abort()
     if (!isOpen) setPanelOpen(true)
     setResultState('sending')
     setResult(null)
     setActiveTab('body')
 
-    const willTimeout = endpoint.delay > TIMEOUT_MS
-    const wait = willTimeout ? 800 : Math.max(180, endpoint.delay)
-    sendTimer.current = window.setTimeout(() => {
-      if (willTimeout) {
-        const timeoutResult: TestResult = { state: 'timeout', duration: TIMEOUT_MS, size: 0, body: '', headers: [] }
-        setResult(timeoutResult)
-        setResultState('timeout')
-        return
-      }
+    const controller = new AbortController()
+    requestController.current = controller
+    const timeoutMs = requestTimeoutMs(endpoint.delayMs)
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
+    const startedAt = performance.now()
 
-      const rawBody = endpoint.statusCode === 204 ? '' : endpoint.body
-      const state = endpoint.statusCode >= 400 ? 'error' : 'success'
+    try {
+      const response = await fetch(testPath, {
+        method: endpoint.method,
+        signal: controller.signal,
+      })
+      const rawBody = await response.text()
+      const duration = Math.max(1, Math.round(performance.now() - startedAt))
+      const contentType = response.headers.get('content-type') ?? ''
+      const state: ResultState = response.status >= 400 ? 'error' : 'success'
       const nextResult: TestResult = {
         state,
-        duration: endpoint.delay || 24,
+        status: response.status,
+        statusText: response.statusText,
+        duration,
         size: byteSize(rawBody),
-        body: formatResponseBody(rawBody, endpoint.contentType),
-        headers: responseHeaders,
+        body: formatResponseBody(rawBody, contentType),
+        headers: Array.from(response.headers.entries()).map(([name, value]) => ({ name, value })),
       }
       setResult(nextResult)
       setResultState(state)
-    }, wait)
+    } catch (error) {
+      const duration = Math.max(1, Math.round(performance.now() - startedAt))
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setResult({ state: 'timeout', status: 0, statusText: 'Timed out', duration: timeoutMs, size: 0, body: '', headers: [] })
+        setResultState('timeout')
+      } else {
+        const message = error instanceof Error ? error.message : 'The request could not be completed'
+        setResult({ state: 'error', status: 0, statusText: 'Network error', duration, size: byteSize(message), body: message, headers: [] })
+        setResultState('error')
+      }
+    } finally {
+      window.clearTimeout(timeoutId)
+      if (requestController.current === controller) requestController.current = null
+    }
   }
 
   async function copyBody() {
@@ -177,7 +207,9 @@ export function EndpointTestPanel({ endpoint, isActive, mockUrl }: EndpointTestP
     copiedTimer.current = window.setTimeout(() => setCopied(false), 1400)
   }
 
-  const statusText = `${endpoint.statusCode} ${statusLabels[endpoint.statusCode] ?? ''}`.trim()
+  const statusText = result?.status
+    ? `${result.status} ${result.statusText || statusLabels[result.status] || ''}`.trim()
+    : result?.statusText ?? ''
   const statusTone = resultState === 'success' ? 'text-[var(--success)]' : resultState === 'error' || resultState === 'timeout' ? 'text-[var(--danger)]' : 'text-[var(--text-muted)]'
 
   if (!isOpen) {
@@ -186,7 +218,7 @@ export function EndpointTestPanel({ endpoint, isActive, mockUrl }: EndpointTestP
         <IconButton className="mt-1" label="Open test console" onClick={togglePanel}><ChevronLeft aria-hidden="true" size={14} /></IconButton>
         <button className="mt-2 flex flex-1 items-start py-2 text-[10px] font-semibold text-[var(--text-muted)] [writing-mode:vertical-rl] hover:text-[var(--text-primary)]" onClick={togglePanel} type="button">Test console</button>
         {result ? <span aria-label={result.state === 'timeout' ? 'Timed out' : statusText} className={`mb-2 size-1.5 rounded-full ${result.state === 'success' ? 'bg-[var(--success)]' : 'bg-[var(--danger)]'}`} /> : null}
-        <IconButton className="mb-1" label="Send request" onClick={sendRequest}><Send aria-hidden="true" size={13} /></IconButton>
+        <IconButton className="mb-1" disabled={hasUnsavedChanges || resultState === 'sending'} label={hasUnsavedChanges ? 'Save changes before sending' : 'Send request'} onClick={sendRequest}><Send aria-hidden="true" size={13} /></IconButton>
       </aside>
     )
   }
@@ -204,17 +236,17 @@ export function EndpointTestPanel({ endpoint, isActive, mockUrl }: EndpointTestP
       <div className="shrink-0 border-b border-[var(--border-default)] p-3">
         <div className="mb-2 flex min-w-0 items-center gap-2">
           <span className={`shrink-0 font-mono text-[10px] font-semibold method-${endpoint.method.toLowerCase()}`}>{endpoint.method}</span>
-          <code className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--text-secondary)]" title={mockUrl}>{mockUrl}</code>
+          <code className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--text-secondary)]" title={testUrl}>{testUrl}</code>
         </div>
         <div className="flex items-center justify-between gap-2">
-          {result ? <div className="flex min-w-0 items-center gap-2 font-mono text-[9px]"><span className={`truncate font-semibold ${statusTone}`}>{result.state === 'timeout' ? 'Timed out' : statusText}</span><span className="shrink-0 text-[var(--text-muted)]">{result.duration} ms</span><span className="shrink-0 text-[var(--text-muted)]">{formatSize(result.size)}</span></div> : <span className="text-[10px] text-[var(--text-muted)]">Ready to send</span>}
-          <Button className="shrink-0" disabled={resultState === 'sending'} onClick={sendRequest} size="small" variant="primary"><Send aria-hidden="true" size={12} />{resultState === 'sending' ? 'Sending…' : 'Send'}</Button>
+          {result ? <div className="flex min-w-0 items-center gap-2 font-mono text-[9px]"><span className={`truncate font-semibold ${statusTone}`}>{result.state === 'timeout' ? 'Timed out' : statusText}</span><span className="shrink-0 text-[var(--text-muted)]">{result.duration} ms</span><span className="shrink-0 text-[var(--text-muted)]">{formatSize(result.size)}</span></div> : <span className="text-[10px] text-[var(--text-muted)]">{hasUnsavedChanges ? 'Save changes before sending' : 'Ready to send'}</span>}
+          <Button className="shrink-0" disabled={hasUnsavedChanges || resultState === 'sending'} onClick={sendRequest} size="small" variant="primary"><Send aria-hidden="true" size={12} />{resultState === 'sending' ? 'Sending…' : 'Send'}</Button>
         </div>
       </div>
 
-      {resultState === 'idle' ? <EmptyState icon={<Send aria-hidden="true" size={17} />} title="Send a request to preview this mock" description="The local preview uses the endpoint configuration." /> : null}
+      {resultState === 'idle' ? <EmptyState icon={<Send aria-hidden="true" size={17} />} title="Send a request to preview this mock" description={hasUnsavedChanges ? 'Save your changes before testing the runtime.' : 'This sends a real request to the saved mock runtime.'} /> : null}
       {resultState === 'sending' ? <EmptyState icon={<Clock3 aria-hidden="true" className="animate-pulse" size={17} />} title="Waiting for mock response…" /> : null}
-      {resultState === 'timeout' ? <EmptyState danger icon={<AlertTriangle aria-hidden="true" size={18} />} title="Request timed out" description={`No response was received within ${TIMEOUT_MS.toLocaleString()} ms.`} /> : null}
+      {resultState === 'timeout' ? <EmptyState danger icon={<AlertTriangle aria-hidden="true" size={18} />} title="Request timed out" description={`No response was received within ${(result?.duration ?? MIN_TIMEOUT_MS).toLocaleString()} ms.`} /> : null}
 
       {result && result.state !== 'timeout' ? (
         <div className="flex min-h-0 flex-1 flex-col">

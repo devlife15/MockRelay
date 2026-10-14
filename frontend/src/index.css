@@ -1,14 +1,15 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
-    Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-mono:
+    "Space Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 }
 
 :root {
   color-scheme: light;
-  font-family: "Manrope", system-ui, sans-serif;
+  font-family: "Space Grotesk", system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 
@@ -36,18 +37,18 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg-app: #0f1011;
-  --bg-surface: #151617;
-  --bg-subtle: #1c1d1f;
-  --bg-hover: #232528;
-  --text-primary: #f1f1f2;
-  --text-secondary: #a7a9ae;
-  --text-muted: #74777d;
-  --border-default: #2a2c30;
-  --border-strong: #3a3d42;
-  --accent: #7c7cf0;
-  --accent-hover: #8d8df5;
-  --accent-subtle: #252545;
+  --bg-app: #12131a;
+  --bg-surface: #181920;
+  --bg-subtle: #1e202a;
+  --bg-hover: #262936;
+  --text-primary: #f2f1f7;
+  --text-secondary: #adb0bc;
+  --text-muted: #7d8190;
+  --border-default: #2c2f3b;
+  --border-strong: #3a3e4d;
+  --accent: #8181f5;
+  --accent-hover: #9292fa;
+  --accent-subtle: #292944;
   --success: #67c99a;
   --warning: #e0a458;
   --danger: #ee7a83;
@@ -90,18 +91,69 @@ button {
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
-.method-get { color: var(--method-get); }
-.method-post { color: var(--method-post); }
-.method-put { color: var(--method-put); }
-.method-patch { color: var(--method-patch); }
-.method-delete { color: var(--method-delete); }
+.method-get {
+  --method-color: var(--method-get);
+  color: var(--method-get);
+}
+.method-post {
+  --method-color: var(--method-post);
+  color: var(--method-post);
+}
+.method-put {
+  --method-color: var(--method-put);
+  color: var(--method-put);
+}
+.method-patch {
+  --method-color: var(--method-patch);
+  color: var(--method-patch);
+}
+.method-delete {
+  --method-color: var(--method-delete);
+  color: var(--method-delete);
+}
 
+.method-row-get {
+  --row-method-color: var(--method-get);
+}
+.method-row-post {
+  --row-method-color: var(--method-post);
+}
+.method-row-put {
+  --row-method-color: var(--method-put);
+}
+.method-row-patch {
+  --row-method-color: var(--method-patch);
+}
+.method-row-delete {
+  --row-method-color: var(--method-delete);
+}
+
+.endpoint-row {
+  background: color-mix(in srgb, var(--row-method-color) 3.5%, transparent);
+}
+
+.endpoint-row:hover {
+  background: color-mix(in srgb, var(--row-method-color) 8%, transparent);
+}
+
+.endpoint-row-selected,
+.endpoint-row-selected:hover {
+  background: color-mix(in srgb, var(--row-method-color) 12%, transparent);
+}
