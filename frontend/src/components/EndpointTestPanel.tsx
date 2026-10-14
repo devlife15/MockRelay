@@ -19,6 +19,7 @@ type TestResult = {
 }
 
 type EndpointTestPanelProps = {
+  blockedReason?: string
   endpoint: Endpoint
   hasUnsavedChanges: boolean
   isActive: boolean
@@ -77,7 +78,7 @@ function requestTimeoutMs(delayMs: number) {
   return Math.max(MIN_TIMEOUT_MS, delayMs + TIMEOUT_BUFFER_MS)
 }
 
-export function EndpointTestPanel({ endpoint, hasUnsavedChanges, isActive, mockUrl, projectKey }: EndpointTestPanelProps) {
+export function EndpointTestPanel({ blockedReason, endpoint, hasUnsavedChanges, isActive, mockUrl, projectKey }: EndpointTestPanelProps) {
   const [isOpen, setIsOpen] = useState(readStoredOpen)
   const [width, setWidth] = useState(readStoredWidth)
   const [resultState, setResultState] = useState<ResultState>('idle')
@@ -92,6 +93,8 @@ export function EndpointTestPanel({ endpoint, hasUnsavedChanges, isActive, mockU
     [endpoint.path, projectKey],
   )
   const testUrl = mockUrl.replace(/\{[A-Za-z][A-Za-z0-9_]*}/g, '1')
+  const requestBlocked = hasUnsavedChanges || Boolean(blockedReason)
+  const requestBlockedMessage = blockedReason || 'Save changes before sending'
 
   function setPanelOpen(next: boolean) {
     setIsOpen(next)
@@ -150,7 +153,7 @@ export function EndpointTestPanel({ endpoint, hasUnsavedChanges, isActive, mockU
   }
 
   async function sendRequest() {
-    if (hasUnsavedChanges || resultState === 'sending') return
+    if (requestBlocked || resultState === 'sending') return
     requestController.current?.abort()
     if (!isOpen) setPanelOpen(true)
     setResultState('sending')
@@ -218,7 +221,7 @@ export function EndpointTestPanel({ endpoint, hasUnsavedChanges, isActive, mockU
         <IconButton className="mt-1" label="Open test console" onClick={togglePanel}><ChevronLeft aria-hidden="true" size={14} /></IconButton>
         <button className="mt-2 flex flex-1 items-start py-2 text-[10px] font-semibold text-[var(--text-muted)] [writing-mode:vertical-rl] hover:text-[var(--text-primary)]" onClick={togglePanel} type="button">Test console</button>
         {result ? <span aria-label={result.state === 'timeout' ? 'Timed out' : statusText} className={`mb-2 size-1.5 rounded-full ${result.state === 'success' ? 'bg-[var(--success)]' : 'bg-[var(--danger)]'}`} /> : null}
-        <IconButton className="mb-1" disabled={hasUnsavedChanges || resultState === 'sending'} label={hasUnsavedChanges ? 'Save changes before sending' : 'Send request'} onClick={sendRequest}><Send aria-hidden="true" size={13} /></IconButton>
+        <IconButton className="mb-1" disabled={requestBlocked || resultState === 'sending'} label={requestBlocked ? requestBlockedMessage : 'Send request'} onClick={sendRequest}><Send aria-hidden="true" size={13} /></IconButton>
       </aside>
     )
   }
@@ -239,12 +242,12 @@ export function EndpointTestPanel({ endpoint, hasUnsavedChanges, isActive, mockU
           <code className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--text-secondary)]" title={testUrl}>{testUrl}</code>
         </div>
         <div className="flex items-center justify-between gap-2">
-          {result ? <div className="flex min-w-0 items-center gap-2 font-mono text-[9px]"><span className={`truncate font-semibold ${statusTone}`}>{result.state === 'timeout' ? 'Timed out' : statusText}</span><span className="shrink-0 text-[var(--text-muted)]">{result.duration} ms</span><span className="shrink-0 text-[var(--text-muted)]">{formatSize(result.size)}</span></div> : <span className="text-[10px] text-[var(--text-muted)]">{hasUnsavedChanges ? 'Save changes before sending' : 'Ready to send'}</span>}
-          <Button className="shrink-0" disabled={hasUnsavedChanges || resultState === 'sending'} onClick={sendRequest} size="small" variant="primary"><Send aria-hidden="true" size={12} />{resultState === 'sending' ? 'Sending…' : 'Send'}</Button>
+          {result ? <div className="flex min-w-0 items-center gap-2 font-mono text-[9px]"><span className={`truncate font-semibold ${statusTone}`}>{result.state === 'timeout' ? 'Timed out' : statusText}</span><span className="shrink-0 text-[var(--text-muted)]">{result.duration} ms</span><span className="shrink-0 text-[var(--text-muted)]">{formatSize(result.size)}</span></div> : <span className="text-[10px] text-[var(--text-muted)]">{requestBlocked ? requestBlockedMessage : 'Ready to send'}</span>}
+          <Button className="shrink-0" disabled={requestBlocked || resultState === 'sending'} onClick={sendRequest} size="small" variant="primary"><Send aria-hidden="true" size={12} />{resultState === 'sending' ? 'Sending…' : 'Send'}</Button>
         </div>
       </div>
 
-      {resultState === 'idle' ? <EmptyState icon={<Send aria-hidden="true" size={17} />} title="Send a request to preview this mock" description={hasUnsavedChanges ? 'Save your changes before testing the runtime.' : 'This sends a real request to the saved mock runtime.'} /> : null}
+      {resultState === 'idle' ? <EmptyState icon={<Send aria-hidden="true" size={17} />} title="Send a request to preview this mock" description={requestBlocked ? requestBlockedMessage : 'This sends a real request to the saved mock runtime.'} /> : null}
       {resultState === 'sending' ? <EmptyState icon={<Clock3 aria-hidden="true" className="animate-pulse" size={17} />} title="Waiting for mock response…" /> : null}
       {resultState === 'timeout' ? <EmptyState danger icon={<AlertTriangle aria-hidden="true" size={18} />} title="Request timed out" description={`No response was received within ${(result?.duration ?? MIN_TIMEOUT_MS).toLocaleString()} ms.`} /> : null}
 

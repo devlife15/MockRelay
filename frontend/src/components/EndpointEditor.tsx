@@ -3,16 +3,20 @@ import { json, jsonParseLinter } from '@codemirror/lang-json'
 import { linter } from '@codemirror/lint'
 import { EditorView } from '@codemirror/view'
 import type { Extension } from '@codemirror/state'
-import { Check, Copy, CopyPlus, Plus, Trash2 } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check, Copy, CopyPlus, Pencil, Plus, Power, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getErrorMessage } from '../api/client'
-import type { Endpoint, HttpMethod, ResponseHeader } from '../api/types'
+import { activateScenario, createScenario, deleteScenario, getScenarios, scenarioKeys, toScenarioRequest, updateScenario } from '../api/scenarios'
+import type { Endpoint, HttpMethod, ResponseHeader, ResponseScenario } from '../api/types'
 import { validateEndpointPath } from '../utils/endpointValidation'
 import { isJsonContentType, statusAllowsBody } from '../utils/responseBody'
 import { Button } from './ui/Button'
 import { IconButton } from './ui/IconButton'
 import { EndpointTestPanel } from './EndpointTestPanel'
 import { MoreActionsMenu } from './ui/MoreActionsMenu'
+import { DeleteConfirmationDialog } from './DeleteConfirmationDialog'
+import { ScenarioNameDialog } from './ScenarioNameDialog'
 
 type EditorTab = 'response' | 'headers' | 'timing' | 'settings'
 
@@ -20,9 +24,11 @@ type EndpointEditorProps = {
   endpoint: Endpoint
   endpoints: Endpoint[]
   isActive: boolean
+  onActiveScenarioChange: (scenario: ResponseScenario) => void
   onDelete: () => void
   onDuplicate: () => void
   onSave: (endpoint: Endpoint) => Promise<Endpoint>
+  projectId: string
   projectKey: string
 }
 
@@ -67,7 +73,8 @@ function createHeader(): ResponseHeader {
   }
 }
 
-export function EndpointEditor({ endpoint, endpoints, isActive, onDelete, onDuplicate, onSave, projectKey }: EndpointEditorProps) {
+export function EndpointEditor({ endpoint, endpoints, isActive, onActiveScenarioChange, onDelete, onDuplicate, onSave, projectId, projectKey }: EndpointEditorProps) {
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<EditorTab>('response')
   const [method, setMethod] = useState(endpoint.method)
   const [path, setPath] = useState(endpoint.path)
@@ -80,7 +87,23 @@ export function EndpointEditor({ endpoint, endpoints, isActive, onDelete, onDupl
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'failed'>('saved')
   const [saveError, setSaveError] = useState('')
   const [copyLabel, setCopyLabel] = useState<'body' | 'url' | null>(null)
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null)
+  const [scenarioDialogMode, setScenarioDialogMode] = useState<'create' | 'rename' | null>(null)
+  const [scenarioToDelete, setScenarioToDelete] = useState<ResponseScenario | null>(null)
+  const [scenarioOperation, setScenarioOperation] = useState<'activating' | 'creating' | 'renaming' | 'deleting' | null>(null)
+  const [scenarioError, setScenarioError] = useState('')
   const feedbackTimer = useRef<number | null>(null)
+
+  const scenariosQuery = useQuery({
+    queryKey: scenarioKeys.list(projectId, endpoint.id),
+    queryFn: () => getScenarios(projectId, endpoint.id),
+    enabled: isActive,
+  })
+  const scenarios = useMemo(() => scenariosQuery.data ?? [], [scenariosQuery.data])
+  const activeScenario = scenarios.find((scenario) => scenario.active)
+  const selectedScenario = scenarios.find((scenario) => scenario.id === selectedScenarioId)
+    ?? activeScenario
+    ?? scenarios[0]
 
   const trimmedPath = path.trim()
   const trimmedName = name.trim()
@@ -92,11 +115,12 @@ export function EndpointEditor({ endpoint, endpoints, isActive, onDelete, onDupl
     ? `${method} ${trimmedPath} already exists.`
     : ''
   const settingsError = pathError || duplicateError
-  const bodyIsDirty = body !== endpoint.body
-  const headersAreDirty = !sameHeaders(headers, endpoint.headers ?? [])
-  const timingIsDirty = delayMs !== endpoint.delayMs
+  const scenarioBaseline = selectedScenario ?? endpoint
+  const bodyIsDirty = body !== scenarioBaseline.body
+  const headersAreDirty = !sameHeaders(headers, scenarioBaseline.headers ?? [])
+  const timingIsDirty = delayMs !== scenarioBaseline.delayMs
   const settingsAreDirty = method !== endpoint.method || trimmedPath !== endpoint.path || trimmedName !== endpoint.name
-  const responseIsDirty = bodyIsDirty || statusCode !== endpoint.statusCode || contentType !== endpoint.contentType
+  const responseIsDirty = bodyIsDirty || statusCode !== scenarioBaseline.statusCode || contentType !== scenarioBaseline.contentType
   const isDirty = responseIsDirty || headersAreDirty || timingIsDirty || settingsAreDirty
 
   const editorExtensions = useMemo(
@@ -104,8 +128,18 @@ export function EndpointEditor({ endpoint, endpoints, isActive, onDelete, onDupl
     [bodyAllowed, contentType],
   )
 
+  const loadScenario = useCallback((scenario: ResponseScenario) => {
+    setStatusCode(scenario.statusCode)
+    setContentType(scenario.contentType)
+    setDelayMs(scenario.delayMs)
+    setBody(scenario.body)
+    setHeaders(scenario.headers)
+    setSaveState('saved')
+    setSaveError('')
+  }, [])
+
   const handleSave = useCallback(async () => {
-    if (!isDirty || jsonError || settingsError || saveState === 'saving') return
+    if (!isDirty || !selectedScenario || jsonError || settingsError || saveState === 'saving') return
     const nextPath = path.trim()
     const nextName = name.trim()
     const nextBody = bodyAllowed ? body : ''
@@ -115,13 +149,45 @@ export function EndpointEditor({ endpoint, endpoints, isActive, onDelete, onDupl
     setSaveState('saving')
     setSaveError('')
     try {
-      await onSave({ ...endpoint, method, path: nextPath, name: nextName, statusCode, contentType, delayMs, body: nextBody, headers })
+      let savedScenario = selectedScenario
+      if (responseIsDirty || headersAreDirty || timingIsDirty) {
+        savedScenario = await updateScenario(projectId, endpoint.id, selectedScenario.id, {
+          name: selectedScenario.name,
+          statusCode,
+          contentType,
+          delayMs,
+          body: nextBody,
+          headers: headers.map(({ name: headerName, value, enabled }) => ({ name: headerName, value, enabled })),
+        })
+        queryClient.setQueryData<ResponseScenario[]>(
+          scenarioKeys.list(projectId, endpoint.id),
+          (current = []) => current.map((scenario) => scenario.id === savedScenario.id ? savedScenario : scenario),
+        )
+        if (savedScenario.active) onActiveScenarioChange(savedScenario)
+      }
+
+      if (settingsAreDirty) {
+        const activeConfiguration = savedScenario.active
+          ? savedScenario
+          : scenarios.find((scenario) => scenario.active) ?? endpoint
+        await onSave({
+          ...endpoint,
+          method,
+          path: nextPath,
+          name: nextName,
+          statusCode: activeConfiguration.statusCode,
+          contentType: activeConfiguration.contentType,
+          delayMs: activeConfiguration.delayMs,
+          body: activeConfiguration.body,
+          headers: activeConfiguration.headers,
+        })
+      }
       setSaveState('saved')
     } catch (error) {
       setSaveState('failed')
       setSaveError(getErrorMessage(error))
     }
-  }, [body, bodyAllowed, contentType, delayMs, endpoint, headers, isDirty, jsonError, method, name, onSave, path, saveState, settingsError, statusCode])
+  }, [body, bodyAllowed, contentType, delayMs, endpoint, headers, headersAreDirty, isDirty, jsonError, method, name, onActiveScenarioChange, onSave, path, projectId, queryClient, responseIsDirty, saveState, scenarios, selectedScenario, settingsAreDirty, settingsError, statusCode, timingIsDirty])
 
   useEffect(() => {
     if (!isActive) return
@@ -153,6 +219,106 @@ export function EndpointEditor({ endpoint, endpoints, isActive, onDelete, onDupl
 
   function updateHeader(id: string, patch: Partial<ResponseHeader>) {
     setHeaders((current) => current.map((header) => header.id === id ? { ...header, ...patch } : header))
+  }
+
+  function cacheScenarios(updater: (current: ResponseScenario[]) => ResponseScenario[]) {
+    queryClient.setQueryData<ResponseScenario[]>(
+      scenarioKeys.list(projectId, endpoint.id),
+      (current = []) => updater(current),
+    )
+  }
+
+  function handleScenarioSelection(scenarioId: string) {
+    if (isDirty) return
+    const scenario = scenarios.find((item) => item.id === scenarioId)
+    if (!scenario) return
+    setSelectedScenarioId(scenario.id)
+    setScenarioError('')
+    loadScenario(scenario)
+  }
+
+  async function handleCreateScenario(scenarioName: string) {
+    setScenarioOperation('creating')
+    setScenarioError('')
+    try {
+      const scenario = await createScenario(projectId, endpoint.id, {
+        name: scenarioName,
+        statusCode,
+        contentType,
+        headers: headers.map(({ name: headerName, value, enabled }) => ({ name: headerName, value, enabled })),
+        body: bodyAllowed ? body : '',
+        delayMs,
+      })
+      cacheScenarios((current) => [...current, scenario])
+      setSelectedScenarioId(scenario.id)
+      loadScenario(scenario)
+    } catch (error) {
+      setScenarioError(getErrorMessage(error))
+      throw error
+    } finally {
+      setScenarioOperation(null)
+    }
+  }
+
+  async function handleRenameScenario(scenarioName: string) {
+    if (!selectedScenario) return
+    setScenarioOperation('renaming')
+    setScenarioError('')
+    try {
+      const scenario = await updateScenario(
+        projectId,
+        endpoint.id,
+        selectedScenario.id,
+        { ...toScenarioRequest(selectedScenario), name: scenarioName },
+      )
+      cacheScenarios((current) => current.map((item) => item.id === scenario.id ? scenario : item))
+    } catch (error) {
+      setScenarioError(getErrorMessage(error))
+      throw error
+    } finally {
+      setScenarioOperation(null)
+    }
+  }
+
+  async function handleActivateScenario() {
+    if (!selectedScenario || selectedScenario.active || isDirty) return
+    setScenarioOperation('activating')
+    setScenarioError('')
+    try {
+      const activated = await activateScenario(projectId, endpoint.id, selectedScenario.id)
+      cacheScenarios((current) => current.map((scenario) => ({
+        ...scenario,
+        active: scenario.id === activated.id,
+        updatedAt: scenario.id === activated.id ? activated.updatedAt : scenario.updatedAt,
+      })))
+      onActiveScenarioChange(activated)
+    } catch (error) {
+      setScenarioError(getErrorMessage(error))
+    } finally {
+      setScenarioOperation(null)
+    }
+  }
+
+  async function handleDeleteScenario() {
+    if (!scenarioToDelete) return
+    setScenarioOperation('deleting')
+    setScenarioError('')
+    try {
+      await deleteScenario(projectId, endpoint.id, scenarioToDelete.id)
+      const remaining = scenarios.filter((scenario) => scenario.id !== scenarioToDelete.id)
+      cacheScenarios(() => remaining)
+      const nextScenario = remaining.find((scenario) => scenario.active) ?? remaining[0]
+      if (nextScenario) {
+        setSelectedScenarioId(nextScenario.id)
+        loadScenario(nextScenario)
+      }
+      setScenarioToDelete(null)
+    } catch (error) {
+      setScenarioError(getErrorMessage(error))
+      throw error
+    } finally {
+      setScenarioOperation(null)
+    }
   }
 
   const tabDirty: Record<EditorTab, boolean> = {
@@ -190,6 +356,46 @@ export function EndpointEditor({ endpoint, endpoints, isActive, onDelete, onDupl
             />
           </div>
 
+          <div className="flex min-h-10 items-center gap-2 border-t border-[var(--border-default)] py-2">
+            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.045em] text-[var(--text-muted)]">Response scenario</span>
+            {scenariosQuery.isPending ? (
+              <span className="text-[11px] text-[var(--text-muted)]">Loading…</span>
+            ) : scenariosQuery.isError ? (
+              <button className="text-[11px] font-medium text-[var(--danger)] hover:underline" onClick={() => scenariosQuery.refetch()} type="button">Could not load — retry</button>
+            ) : (
+              <>
+                <select
+                  aria-label="Selected response scenario"
+                  className="h-7 min-w-[160px] max-w-[240px] rounded-md border border-[var(--border-default)] bg-[var(--bg-app)] px-2 text-[11px] font-medium outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-subtle)] disabled:opacity-60"
+                  disabled={isDirty || Boolean(scenarioOperation)}
+                  onChange={(event) => handleScenarioSelection(event.target.value)}
+                  title={isDirty ? 'Save or revert changes before switching scenarios' : undefined}
+                  value={selectedScenario?.id ?? ''}
+                >
+                  {scenarios.map((scenario) => <option key={scenario.id} value={scenario.id}>{scenario.name}{scenario.active ? ' • Active' : ''}</option>)}
+                </select>
+                {selectedScenario?.active ? (
+                  <span className="inline-flex h-6 items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--success)_12%,transparent)] px-2 text-[10px] font-semibold text-[var(--success)]"><span className="size-1.5 rounded-full bg-current" />Active</span>
+                ) : selectedScenario ? (
+                  <Button disabled={isDirty || Boolean(scenarioOperation)} onClick={handleActivateScenario} size="small"><Power aria-hidden="true" size={11} />{scenarioOperation === 'activating' ? 'Activating…' : 'Set active'}</Button>
+                ) : null}
+                <Button disabled={isDirty || scenarios.length >= 20 || Boolean(scenarioOperation)} onClick={() => setScenarioDialogMode('create')} size="small"><Plus aria-hidden="true" size={11} /> New</Button>
+                {selectedScenario ? (
+                  <MoreActionsMenu
+                    items={[
+                      { icon: <Pencil aria-hidden="true" size={13} />, label: 'Rename scenario', onSelect: () => setScenarioDialogMode('rename') },
+                      { danger: true, icon: <Trash2 aria-hidden="true" size={13} />, label: 'Delete scenario', onSelect: () => selectedScenario.active ? setScenarioError('Activate another scenario before deleting this one.') : setScenarioToDelete(selectedScenario), separatorBefore: true },
+                    ]}
+                    label="More scenario actions"
+                  />
+                ) : null}
+                <span className="text-[10px] text-[var(--text-muted)]">{scenarios.length}/20</span>
+              </>
+            )}
+            {isDirty ? <span className="ml-auto text-[10px] text-[var(--text-muted)]">Save or revert before switching</span> : null}
+            {scenarioError ? <span className="ml-auto max-w-[260px] truncate text-[10px] text-[var(--danger)]" title={scenarioError}>{scenarioError}</span> : null}
+          </div>
+
           <nav aria-label="Endpoint configuration" className="flex h-8 items-end gap-5">
             {(['response', 'headers', 'timing', 'settings'] as EditorTab[]).map((tab) => (
               <button aria-current={activeTab === tab ? 'page' : undefined} className={activeTab === tab ? 'relative h-8 border-b-2 border-[var(--accent)] text-xs font-semibold capitalize text-[var(--text-primary)]' : 'relative h-8 border-b-2 border-transparent text-xs font-medium capitalize text-[var(--text-muted)] hover:text-[var(--text-primary)]'} key={tab} onClick={() => setActiveTab(tab)} type="button">
@@ -199,13 +405,13 @@ export function EndpointEditor({ endpoint, endpoints, isActive, onDelete, onDupl
           </nav>
         </header>
 
-        {activeTab === 'response' ? <ResponseTab body={body} bodyAllowed={bodyAllowed} bodyIsDirty={bodyIsDirty} contentType={contentType} editorExtensions={editorExtensions} endpoint={endpoint} formatBody={formatBody} jsonError={jsonError} onBodyChange={setBody} onContentTypeChange={setContentType} onCopy={() => copyText(bodyAllowed ? body : '', 'body')} onRevert={() => { setStatusCode(endpoint.statusCode); setContentType(endpoint.contentType); setBody(endpoint.body) }} onStatusChange={setStatusCode} responseIsDirty={responseIsDirty} statusCode={statusCode} copyLabel={copyLabel} /> : null}
+        {activeTab === 'response' ? <ResponseTab body={body} bodyAllowed={bodyAllowed} bodyIsDirty={bodyIsDirty} contentType={contentType} editorExtensions={editorExtensions} endpoint={endpoint} formatBody={formatBody} jsonError={jsonError} onBodyChange={setBody} onContentTypeChange={setContentType} onCopy={() => copyText(bodyAllowed ? body : '', 'body')} onRevert={() => { setStatusCode(scenarioBaseline.statusCode); setContentType(scenarioBaseline.contentType); setBody(scenarioBaseline.body) }} onStatusChange={setStatusCode} responseIsDirty={responseIsDirty} statusCode={statusCode} copyLabel={copyLabel} /> : null}
 
         {activeTab === 'headers' ? (
           <div className="min-h-0 flex-1 overflow-auto p-4">
             <div className="mb-3 flex items-center justify-between">
               <div><h2 className="text-[13px] font-semibold">Response headers</h2><p className="mt-0.5 text-[11px] text-[var(--text-muted)]">Returned with every response from this endpoint.</p></div>
-              <div className="flex items-center gap-1">{headersAreDirty ? <button className="rounded px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]" onClick={() => setHeaders(endpoint.headers ?? [])} type="button">Revert</button> : null}<Button onClick={() => setHeaders((current) => [...current, createHeader()])} size="small"><Plus aria-hidden="true" size={12} /> Add header</Button></div>
+              <div className="flex items-center gap-1">{headersAreDirty ? <button className="rounded px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]" onClick={() => setHeaders(scenarioBaseline.headers ?? [])} type="button">Revert</button> : null}<Button onClick={() => setHeaders((current) => [...current, createHeader()])} size="small"><Plus aria-hidden="true" size={12} /> Add header</Button></div>
             </div>
             <div className="overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)]">
               <div className="grid h-8 grid-cols-[36px_minmax(160px,0.8fr)_minmax(220px,1.2fr)_36px] items-center border-b border-[var(--border-default)] bg-[var(--bg-subtle)] px-2 text-[10px] font-semibold uppercase tracking-[0.04em] text-[var(--text-muted)]"><span /><span>Name</span><span>Value</span><span /></div>
@@ -223,7 +429,7 @@ export function EndpointEditor({ endpoint, endpoints, isActive, onDelete, onDupl
 
         {activeTab === 'timing' ? (
           <div className="min-h-0 flex-1 overflow-auto p-4"><div className="max-w-[620px]">
-            <div className="mb-4 flex items-start justify-between"><div><h2 className="text-[13px] font-semibold">Response timing</h2><p className="mt-0.5 text-[11px] text-[var(--text-muted)]">Add latency to simulate a slower service or network.</p></div>{timingIsDirty ? <button className="rounded px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]" onClick={() => setDelayMs(endpoint.delayMs)} type="button">Revert</button> : null}</div>
+            <div className="mb-4 flex items-start justify-between"><div><h2 className="text-[13px] font-semibold">Response timing</h2><p className="mt-0.5 text-[11px] text-[var(--text-muted)]">Add latency to simulate a slower service or network.</p></div>{timingIsDirty ? <button className="rounded px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]" onClick={() => setDelayMs(scenarioBaseline.delayMs)} type="button">Revert</button> : null}</div>
             <section className="rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
               <div className="mb-2 text-[11px] font-semibold text-[var(--text-secondary)]">Delay preset</div>
               <div className="flex flex-wrap gap-1.5">{timingPresets.map((preset) => <button className={delayMs === preset ? 'h-8 min-w-[68px] rounded-md border border-[var(--accent)] bg-[var(--accent-subtle)] px-3 font-mono text-xs font-medium text-[var(--accent)]' : 'h-8 min-w-[68px] rounded-md border border-[var(--border-default)] bg-[var(--bg-app)] px-3 font-mono text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'} key={preset} onClick={() => setDelayMs(preset)} type="button">{preset === 0 ? 'None' : `${preset} ms`}</button>)}</div>
@@ -244,13 +450,32 @@ export function EndpointEditor({ endpoint, endpoints, isActive, onDelete, onDupl
         ) : null}
         </div>
         <EndpointTestPanel
-          endpoint={{ ...endpoint, method, path: trimmedPath, name: trimmedName, statusCode, contentType, delayMs, body, headers }}
+          blockedReason={selectedScenario && !selectedScenario.active ? 'Set this scenario active before testing it.' : undefined}
+          endpoint={{ ...endpoint, method, path: trimmedPath, name: trimmedName }}
           hasUnsavedChanges={isDirty}
           isActive={isActive}
           mockUrl={mockUrl}
           projectKey={projectKey}
         />
       </div>
+      {scenarioDialogMode ? (
+        <ScenarioNameDialog
+          existingNames={scenarios.filter((scenario) => scenarioDialogMode !== 'rename' || scenario.id !== selectedScenario?.id).map((scenario) => scenario.name)}
+          initialName={scenarioDialogMode === 'rename' ? selectedScenario?.name : ''}
+          mode={scenarioDialogMode}
+          onOpenChange={(open) => { if (!open) setScenarioDialogMode(null) }}
+          onSubmit={scenarioDialogMode === 'rename' ? handleRenameScenario : handleCreateScenario}
+          open
+        />
+      ) : null}
+      <DeleteConfirmationDialog
+        description="This permanently removes the response scenario. The endpoint and its other scenarios will remain available."
+        itemName={scenarioToDelete?.name ?? ''}
+        onConfirm={handleDeleteScenario}
+        onOpenChange={(open) => { if (!open) setScenarioToDelete(null) }}
+        open={Boolean(scenarioToDelete)}
+        title="Delete response scenario?"
+      />
     </div>
   )
 }

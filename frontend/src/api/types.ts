@@ -70,3 +70,28 @@ export type UpdateEndpointRequest = {
   body: string
   delayMs: number
 }
+
+export type ResponseScenario = {
+  id: string
+  endpointId: string
+  name: string
+  active: boolean
+  statusCode: number
+  contentType: string
+  headers: ResponseHeader[]
+  body: string
+  delayMs: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type CreateResponseScenarioRequest = {
+  name: string
+  statusCode: number
+  contentType: string
+  headers: ResponseHeaderRequest[]
+  body: string
+  delayMs: number
+}
+
+export type UpdateResponseScenarioRequest = CreateResponseScenarioRequest

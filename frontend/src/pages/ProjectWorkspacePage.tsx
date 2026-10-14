@@ -5,7 +5,7 @@ import { Link, useParams } from 'react-router'
 import { getErrorMessage } from '../api/client'
 import { createEndpoint, deleteEndpoint, endpointKeys, getEndpoints, toUpdateEndpointRequest, updateEndpoint } from '../api/endpoints'
 import { getProject, projectKeys } from '../api/projects'
-import type { CreateEndpointRequest, Endpoint } from '../api/types'
+import type { CreateEndpointRequest, Endpoint, ResponseScenario } from '../api/types'
 import { AppTopBar } from '../components/AppTopBar'
 import { CreateEndpointDialog } from '../components/CreateEndpointDialog'
 import { DeleteConfirmationDialog } from '../components/DeleteConfirmationDialog'
@@ -50,6 +50,22 @@ export function ProjectWorkspacePage() {
   function updateEndpointCache(updatedEndpoint: Endpoint) {
     queryClient.setQueryData<Endpoint[]>(endpointKeys.list(projectId), (current = []) =>
       current.map((endpoint) => endpoint.id === updatedEndpoint.id ? updatedEndpoint : endpoint),
+    )
+  }
+
+  function updateActiveScenarioInEndpoint(endpointId: string, scenario: ResponseScenario) {
+    queryClient.setQueryData<Endpoint[]>(endpointKeys.list(projectId), (current = []) =>
+      current.map((endpoint) => endpoint.id === endpointId
+        ? {
+            ...endpoint,
+            statusCode: scenario.statusCode,
+            contentType: scenario.contentType,
+            headers: scenario.headers,
+            body: scenario.body,
+            delayMs: scenario.delayMs,
+            updatedAt: scenario.updatedAt,
+          }
+        : endpoint),
     )
   }
 
@@ -158,7 +174,7 @@ export function ProjectWorkspacePage() {
 
         {selectedEndpoint ? (
           <div className="flex min-w-0 flex-1">
-            {endpoints.map((endpoint) => <div className={endpoint.id === selectedEndpoint.id ? 'flex min-w-0 flex-1' : 'hidden'} key={endpoint.id}><EndpointEditor endpoint={endpoint} endpoints={endpoints} isActive={endpoint.id === selectedEndpoint.id} onDelete={() => setEndpointToDelete(endpoint)} onDuplicate={() => handleDuplicate(endpoint)} onSave={(updatedEndpoint) => updateMutation.mutateAsync(updatedEndpoint)} projectKey={project.projectKey} /></div>)}
+            {endpoints.map((endpoint) => <div className={endpoint.id === selectedEndpoint.id ? 'flex min-w-0 flex-1' : 'hidden'} key={endpoint.id}><EndpointEditor endpoint={endpoint} endpoints={endpoints} isActive={endpoint.id === selectedEndpoint.id} onActiveScenarioChange={(scenario) => updateActiveScenarioInEndpoint(endpoint.id, scenario)} onDelete={() => setEndpointToDelete(endpoint)} onDuplicate={() => handleDuplicate(endpoint)} onSave={(updatedEndpoint) => updateMutation.mutateAsync(updatedEndpoint)} projectId={projectId} projectKey={project.projectKey} /></div>)}
           </div>
         ) : (
           <main className="grid min-w-0 flex-1 place-items-center p-8"><div className="max-w-[360px] text-center"><div className="mx-auto mb-4 grid size-11 place-items-center rounded-lg bg-[var(--accent-subtle)] text-[var(--accent)]"><Plus aria-hidden="true" size={20} strokeWidth={1.8} /></div><h1 className="text-base font-semibold leading-6 tracking-[-0.015em]">Create your first endpoint</h1><p className="mx-auto mt-1.5 max-w-[330px] text-sm leading-[21px] text-[var(--text-secondary)]">Define a method, path, and response. Your mock URL will be ready immediately.</p><Button className="mt-5" onClick={() => setDialogIsOpen(true)} size="small" variant="primary"><Plus aria-hidden="true" size={12} /> Create endpoint</Button></div></main>
