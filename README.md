@@ -9,7 +9,7 @@
 </p>
 
 > [!NOTE]
-> MockRelay is under active development. The frontend workspace prototype, management APIs, and dynamic mock runtime are implemented. Frontend–backend integration is the next V1 milestone.
+> MockRelay is under active development. The React workspace is connected to the Spring Boot management APIs and dynamic mock runtime, completing the first end-to-end V1 workflow.
 
 ## Why MockRelay?
 
@@ -40,6 +40,9 @@ The project is also a practical exploration of Spring Boot API design, relationa
 - Dynamic mock runtime under `/mock/{projectKey}/...`
 - HTTP method and parameterized-path matching with static-route precedence
 - Runtime delivery of configured status, content type, enabled headers, body, and delay
+- TanStack Query integration for server-owned project and endpoint state
+- Typed frontend API client with Spring `ProblemDetail` error handling
+- Real runtime requests from the endpoint test console
 - Request validation and RFC-style `ProblemDetail` error responses
 - Global exception handling with `@RestControllerAdvice`
 - PostgreSQL schema managed by Flyway
@@ -47,9 +50,9 @@ The project is also a practical exploration of Spring Boot API design, relationa
 - JSONB response-header persistence model
 - Transactional service and API integration tests
 
-### In progress
+### Next
 
-- Connecting the React workspace to the backend API
+- V1 architecture walkthrough and case-study documentation
 
 ### Later
 
@@ -288,7 +291,7 @@ npm run build
 
 ## Design direction
 
-MockRelay uses a compact, restrained developer-tool visual system: charcoal surfaces, an indigo/violet accent, Manrope for interface text, and IBM Plex Mono for machine-readable content. The complete token and component decisions are documented in the [design system](DESIGN_SYSTEM.md).
+MockRelay uses a compact developer-tool visual system with near-black surfaces, a controlled indigo/violet accent, Space Grotesk for interface text, and Space Mono for machine-readable content. The complete token and component decisions are documented in the [design system](DESIGN_SYSTEM.md).
 
 ## Project status
 

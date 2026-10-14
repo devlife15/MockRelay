@@ -198,7 +198,7 @@ class MockRuntimeControllerTests {
 
         jdbcTemplate.update(
                 """
-                update mock_responses
+                update mock_response_scenarios
                 set status_code = ?, content_type = 'application/json', body = '{"stale":true}'
                 where endpoint_id = ?
                 """,

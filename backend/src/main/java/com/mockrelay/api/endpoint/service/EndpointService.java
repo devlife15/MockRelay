@@ -6,7 +6,7 @@ import com.mockrelay.api.dto.ResponseHeaderRequest;
 import com.mockrelay.api.dto.ResponseHeaderResponse;
 import com.mockrelay.api.dto.UpdateEndpointRequest;
 import com.mockrelay.api.entity.MockEndpoint;
-import com.mockrelay.api.entity.MockResponse;
+import com.mockrelay.api.entity.MockResponseScenario;
 import com.mockrelay.api.entity.Project;
 import com.mockrelay.api.entity.ResponseHeader;
 import com.mockrelay.api.exception.EndpointNotFoundException;
@@ -47,14 +47,8 @@ public class EndpointService {
         endpoint.setPath(path);
         endpoint.setPathSignature(pathSignature);
 
-        MockResponse response = new MockResponse();
-        response.setStatusCode((short) 200);
-        response.setContentType("application/json");
-        response.setHeaders(List.of());
-        response.setBody(DEFAULT_RESPONSE_BODY);
-        response.setDelayMs(0);
-
-        endpoint.setResponse(response);
+        MockResponseScenario scenario = createDefaultScenario();
+        endpoint.addScenario(scenario);
         project.addEndpoint(endpoint);
 
         return toResponse(endpointRepository.saveAndFlush(endpoint));
@@ -91,17 +85,17 @@ public class EndpointService {
         endpoint.setPath(path);
         endpoint.setPathSignature(pathSignature);
 
-        MockResponse response = endpoint.getResponse();
-        if (response == null) {
-            response = new MockResponse();
-            endpoint.setResponse(response);
+        MockResponseScenario scenario = endpoint.getActiveScenario();
+        if (scenario == null) {
+            scenario = createDefaultScenario();
+            endpoint.addScenario(scenario);
         }
 
-        response.setStatusCode((short) request.statusCode());
-        response.setContentType(request.contentType().trim());
-        response.setHeaders(request.headers().stream().map(this::toHeader).toList());
-        response.setBody(ResponseBodyPolicy.bodyForStorage(request.statusCode(), request.body()));
-        response.setDelayMs(request.delayMs());
+        scenario.setStatusCode((short) request.statusCode());
+        scenario.setContentType(request.contentType().trim());
+        scenario.setHeaders(request.headers().stream().map(this::toHeader).toList());
+        scenario.setBody(ResponseBodyPolicy.bodyForStorage(request.statusCode(), request.body()));
+        scenario.setDelayMs(request.delayMs());
 
         return toResponse(endpointRepository.saveAndFlush(endpoint));
     }
@@ -154,8 +148,8 @@ public class EndpointService {
     }
 
     private EndpointResponse toResponse(MockEndpoint endpoint) {
-        MockResponse response = endpoint.getResponse();
-        List<ResponseHeaderResponse> headers = response.getHeaders().stream()
+        MockResponseScenario scenario = endpoint.getActiveScenario();
+        List<ResponseHeaderResponse> headers = scenario.getHeaders().stream()
                 .map(header -> new ResponseHeaderResponse(
                         header.getName(), header.getValue(), header.isEnabled()
                 ))
@@ -167,14 +161,26 @@ public class EndpointService {
                 endpoint.getName(),
                 endpoint.getMethod(),
                 endpoint.getPath(),
-                response.getStatusCode(),
-                response.getContentType(),
+                scenario.getStatusCode(),
+                scenario.getContentType(),
                 headers,
-                response.getBody(),
-                response.getDelayMs(),
+                scenario.getBody(),
+                scenario.getDelayMs(),
                 endpoint.getCreatedAt(),
                 endpoint.getUpdatedAt()
         );
+    }
+
+    private MockResponseScenario createDefaultScenario() {
+        MockResponseScenario scenario = new MockResponseScenario();
+        scenario.setName("Default");
+        scenario.setActive(true);
+        scenario.setStatusCode((short) 200);
+        scenario.setContentType("application/json");
+        scenario.setHeaders(List.of());
+        scenario.setBody(DEFAULT_RESPONSE_BODY);
+        scenario.setDelayMs(0);
+        return scenario;
     }
 
     private String trimToNull(String value) {

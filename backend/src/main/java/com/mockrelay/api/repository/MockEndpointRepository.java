@@ -32,7 +32,7 @@ public interface MockEndpointRepository extends JpaRepository<MockEndpoint, UUID
     @Query("""
             select endpoint
             from MockEndpoint endpoint
-            join fetch endpoint.response
+            join fetch endpoint.scenarios
             where endpoint.project.projectKey = :projectKey
               and endpoint.method = :method
             order by endpoint.createdAt asc

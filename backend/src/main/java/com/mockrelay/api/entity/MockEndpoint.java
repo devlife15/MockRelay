@@ -12,7 +12,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,6 +23,8 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -53,9 +56,10 @@ public class MockEndpoint {
     @Column(name = "path_signature", nullable = false, length = 255)
     private String pathSignature;
 
-    @OneToOne(mappedBy = "endpoint", fetch = FetchType.LAZY,
+    @OneToMany(mappedBy = "endpoint", fetch = FetchType.LAZY,
             cascade = CascadeType.ALL, orphanRemoval = true)
-    private MockResponse response;
+    @OrderBy("createdAt ASC")
+    private List<MockResponseScenario> scenarios = new ArrayList<>();
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -65,10 +69,20 @@ public class MockEndpoint {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public void setResponse(MockResponse response) {
-        this.response = response;
-        if (response != null) {
-            response.setEndpoint(this);
-        }
+    public void addScenario(MockResponseScenario scenario) {
+        scenarios.add(scenario);
+        scenario.setEndpoint(this);
+    }
+
+    public void removeScenario(MockResponseScenario scenario) {
+        scenarios.remove(scenario);
+        scenario.setEndpoint(null);
+    }
+
+    public MockResponseScenario getActiveScenario() {
+        return scenarios.stream()
+                .filter(MockResponseScenario::isActive)
+                .findFirst()
+                .orElse(null);
     }
 }

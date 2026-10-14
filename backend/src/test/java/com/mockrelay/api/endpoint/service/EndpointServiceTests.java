@@ -10,6 +10,7 @@ import com.mockrelay.api.entity.HttpMethod;
 import com.mockrelay.api.exception.EndpointNotFoundException;
 import com.mockrelay.api.exception.EndpointRouteConflictException;
 import com.mockrelay.api.project.service.ProjectService;
+import com.mockrelay.api.repository.MockResponseScenarioRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -34,6 +35,9 @@ class EndpointServiceTests {
     private ProjectService projectService;
 
     @Autowired
+    private MockResponseScenarioRepository scenarioRepository;
+
+    @Autowired
     private EntityManager entityManager;
 
     @Test
@@ -55,6 +59,12 @@ class EndpointServiceTests {
         assertThat(created.body()).contains("Mock response");
         assertThat(created.delayMs()).isZero();
         assertThat(created.createdAt()).isNotNull();
+        assertThat(scenarioRepository.findAllByEndpoint_IdOrderByCreatedAtAsc(created.id()))
+                .singleElement()
+                .satisfies(scenario -> {
+                    assertThat(scenario.getName()).isEqualTo("Default");
+                    assertThat(scenario.isActive()).isTrue();
+                });
 
         EndpointResponse updated = endpointService.updateEndpoint(
                 project.id(),

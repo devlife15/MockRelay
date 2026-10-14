@@ -2,7 +2,7 @@ package com.mockrelay.api.runtime.service;
 
 import com.mockrelay.api.entity.HttpMethod;
 import com.mockrelay.api.entity.MockEndpoint;
-import com.mockrelay.api.entity.MockResponse;
+import com.mockrelay.api.entity.MockResponseScenario;
 import com.mockrelay.api.entity.ResponseHeader;
 import com.mockrelay.api.exception.MockRouteNotFoundException;
 import com.mockrelay.api.repository.MockEndpointRepository;
@@ -33,19 +33,19 @@ public class MockRuntimeService {
                 .findFirst()
                 .orElseThrow(() -> new MockRouteNotFoundException(projectKey, method, requestPath));
 
-        MockResponse response = endpoint.getResponse();
-        List<ResponseHeader> headers = response.getHeaders().stream()
+        MockResponseScenario scenario = endpoint.getActiveScenario();
+        List<ResponseHeader> headers = scenario.getHeaders().stream()
                 .map(header -> new ResponseHeader(
                         header.getName(), header.getValue(), header.isEnabled()
                 ))
                 .toList();
 
         return new ResolvedMockResponse(
-                response.getStatusCode(),
-                response.getContentType(),
+                scenario.getStatusCode(),
+                scenario.getContentType(),
                 headers,
-                response.getBody(),
-                response.getDelayMs()
+                scenario.getBody(),
+                scenario.getDelayMs()
         );
     }
 }

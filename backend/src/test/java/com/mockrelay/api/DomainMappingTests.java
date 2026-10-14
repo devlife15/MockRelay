@@ -2,11 +2,11 @@ package com.mockrelay.api;
 
 import com.mockrelay.api.entity.HttpMethod;
 import com.mockrelay.api.entity.MockEndpoint;
-import com.mockrelay.api.entity.MockResponse;
+import com.mockrelay.api.entity.MockResponseScenario;
 import com.mockrelay.api.entity.Project;
 import com.mockrelay.api.entity.ResponseHeader;
 import com.mockrelay.api.repository.MockEndpointRepository;
-import com.mockrelay.api.repository.MockResponseRepository;
+import com.mockrelay.api.repository.MockResponseScenarioRepository;
 import com.mockrelay.api.repository.ProjectRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
@@ -29,7 +29,7 @@ class DomainMappingTests {
     private MockEndpointRepository endpointRepository;
 
     @Autowired
-    private MockResponseRepository responseRepository;
+    private MockResponseScenarioRepository scenarioRepository;
 
     @Autowired
     private EntityManager entityManager;
@@ -47,14 +47,23 @@ class DomainMappingTests {
         endpoint.setPath("/users/{id}");
         endpoint.setPathSignature("/users/{}");
 
-        MockResponse response = new MockResponse();
-        response.setStatusCode((short) 200);
-        response.setBody("{\"message\":\"ok\"}");
-        response.setHeaders(List.of(
+        MockResponseScenario defaultScenario = new MockResponseScenario();
+        defaultScenario.setName("Default");
+        defaultScenario.setActive(true);
+        defaultScenario.setStatusCode((short) 200);
+        defaultScenario.setBody("{\"message\":\"ok\"}");
+        defaultScenario.setHeaders(List.of(
                 new ResponseHeader("X-Mock-Source", "MockRelay", true)
         ));
 
-        endpoint.setResponse(response);
+        MockResponseScenario notFoundScenario = new MockResponseScenario();
+        notFoundScenario.setName("Not Found");
+        notFoundScenario.setActive(false);
+        notFoundScenario.setStatusCode((short) 404);
+        notFoundScenario.setBody("{\"message\":\"Not found\"}");
+
+        endpoint.addScenario(defaultScenario);
+        endpoint.addScenario(notFoundScenario);
         project.addEndpoint(endpoint);
         projectRepository.saveAndFlush(project);
 
@@ -65,8 +74,10 @@ class DomainMappingTests {
 
         assertThat(savedProject.getId()).isNotNull();
         assertThat(savedEndpoint.getMethod()).isEqualTo(HttpMethod.GET);
-        assertThat(savedEndpoint.getResponse().getStatusCode()).isEqualTo((short) 200);
-        assertThat(savedEndpoint.getResponse().getHeaders())
+        assertThat(savedEndpoint.getScenarios()).hasSize(2);
+        assertThat(savedEndpoint.getActiveScenario().getName()).isEqualTo("Default");
+        assertThat(savedEndpoint.getActiveScenario().getStatusCode()).isEqualTo((short) 200);
+        assertThat(savedEndpoint.getActiveScenario().getHeaders())
                 .singleElement()
                 .satisfies(header -> {
                     assertThat(header.getName()).isEqualTo("X-Mock-Source");
@@ -75,11 +86,13 @@ class DomainMappingTests {
                 });
 
         var endpointId = savedEndpoint.getId();
-        var responseId = savedEndpoint.getResponse().getId();
+        var scenarioIds = savedEndpoint.getScenarios().stream()
+                .map(MockResponseScenario::getId)
+                .toList();
         projectRepository.delete(savedProject);
         projectRepository.flush();
 
         assertThat(endpointRepository.existsById(endpointId)).isFalse();
-        assertThat(responseRepository.existsById(responseId)).isFalse();
+        assertThat(scenarioRepository.findAllById(scenarioIds)).isEmpty();
     }
 }

@@ -58,6 +58,28 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(ResponseScenarioNotFoundException.class)
+    public ProblemDetail handleResponseScenarioNotFound(
+            ResponseScenarioNotFoundException exception
+    ) {
+        return createProblem(
+                HttpStatus.NOT_FOUND,
+                "Response scenario not found",
+                exception.getMessage()
+        );
+    }
+
+    @ExceptionHandler(ResponseScenarioConflictException.class)
+    public ProblemDetail handleResponseScenarioConflict(
+            ResponseScenarioConflictException exception
+    ) {
+        return createProblem(
+                HttpStatus.CONFLICT,
+                "Response scenario conflict",
+                exception.getMessage()
+        );
+    }
+
     @ExceptionHandler(InvalidEndpointPathException.class)
     public ProblemDetail handleInvalidEndpointPath(InvalidEndpointPathException exception) {
         return createProblem(

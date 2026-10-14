@@ -8,7 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,20 +25,26 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "mock_responses")
+@Table(name = "mock_response_scenarios")
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 @NoArgsConstructor
-public class MockResponse {
+public class MockResponseScenario {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "endpoint_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "endpoint_id", nullable = false)
     private MockEndpoint endpoint;
+
+    @Column(nullable = false, length = 80)
+    private String name;
+
+    @Column(name = "is_active", nullable = false)
+    private boolean active;
 
     @Column(name = "status_code", nullable = false)
     private short statusCode = 200;
