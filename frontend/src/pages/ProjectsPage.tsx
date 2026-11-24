@@ -1,5 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FolderPlus, Pencil, Plus, Trash2 } from 'lucide-react'
+import {
+  BookBookmark,
+  FileText,
+  FolderPlus,
+  Layers2,
+  Pencil,
+  Plus,
+  SquareArrowOutUpRight,
+  Trash2,
+} from 'runeicons-react'
+import type { IconComponent } from 'runeicons-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { createProject, deleteProject, getProjects, projectKeys, updateProject } from '../api/projects'
@@ -8,7 +18,9 @@ import { AppTopBar } from '../components/AppTopBar'
 import { CreateProjectDialog } from '../components/CreateProjectDialog'
 import { DeleteConfirmationDialog } from '../components/DeleteConfirmationDialog'
 import { EditProjectDialog } from '../components/EditProjectDialog'
+import { AppIcon } from '../components/ui/AppIcon'
 import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
 import { MoreActionsMenu } from '../components/ui/MoreActionsMenu'
 
 function formatUpdatedAt(value: string) {
@@ -21,6 +33,39 @@ function formatUpdatedAt(value: string) {
   if (elapsedHours < 24) return `${elapsedHours}h ago`
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(timestamp)
 }
+
+function getDashboardGreeting() {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
+}
+
+const documentationLinks: Array<{
+  description: string
+  href: string
+  icon: IconComponent
+  title: string
+}> = [
+  {
+    description: 'Create projects, configure endpoints, and call a stable mock URL.',
+    href: 'https://github.com/devlife15/MockRelay#why-mockrelay',
+    icon: BookBookmark,
+    title: 'Getting started',
+  },
+  {
+    description: 'Understand the management and runtime request flows.',
+    href: 'https://github.com/devlife15/MockRelay#architecture',
+    icon: FileText,
+    title: 'Architecture overview',
+  },
+  {
+    description: 'Explore the template format and reusable API contracts.',
+    href: 'https://github.com/devlife15/MockRelay/blob/main/docs/starter-api-template-format.md',
+    icon: Layers2,
+    title: 'Starter API templates',
+  },
+]
 
 export function ProjectsPage() {
   const navigate = useNavigate()
@@ -68,44 +113,86 @@ export function ProjectsPage() {
   return (
     <div className="flex min-h-screen flex-col bg-[var(--bg-app)] text-[var(--text-primary)]">
       <AppTopBar />
-      <main className="flex min-h-0 flex-1 flex-col px-5 py-5 sm:px-7 lg:px-10">
-        <div className="mx-auto flex w-full max-w-[1120px] items-center justify-between gap-4">
-          <div>
-            <h1 className="text-[22px] font-semibold leading-[30px] tracking-[-0.025em]">Projects</h1>
-            <p className="mt-0.5 text-xs text-[var(--text-secondary)]">Organize related mock endpoints under a shared base URL.</p>
-          </div>
-          <Button onClick={() => setDialogIsOpen(true)} size="small" variant="primary"><Plus aria-hidden="true" size={12} strokeWidth={2} />New project</Button>
-        </div>
+      <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 pt-8 pb-14 sm:px-6 lg:px-8 lg:pt-10">
+        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_288px]">
+          <div className="min-w-0">
+            <section>
+              <p className="flex items-center gap-2 text-xs font-medium text-[var(--text-muted)]"><span aria-hidden="true" className="size-1.5 rounded-full bg-[var(--accent)]" />{new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(new Date())}</p>
+              <h1 className="mt-1.5 text-[28px] leading-tight font-semibold tracking-[-0.035em] sm:text-[32px]">{getDashboardGreeting()}, Ayan</h1>
+              <p className="mt-1.5 max-w-[620px] text-sm leading-6 text-[var(--text-secondary)]">Build and manage the mock APIs your clients depend on.</p>
+            </section>
 
-        {projectsQuery.isPending ? (
-          <section className="grid flex-1 place-items-center text-xs text-[var(--text-muted)]">Loading projects…</section>
-        ) : projectsQuery.isError ? (
-          <section className="grid flex-1 place-items-center py-12 text-center">
-            <div><p className="text-sm font-medium">Could not load projects</p><p className="mt-1 text-xs text-[var(--text-muted)]">Make sure the Spring Boot API is running.</p><Button className="mt-4" onClick={() => projectsQuery.refetch()} size="small">Retry</Button></div>
-          </section>
-        ) : projects.length === 0 ? (
-          <section className="mx-auto grid w-full max-w-[1120px] flex-1 place-items-center py-12">
-            <div className="max-w-90 text-center">
-              <div className="mx-auto mb-4 grid size-11 place-items-center rounded-lg bg-(--accent-subtle) text-[var(--accent)]"><FolderPlus aria-hidden="true" size={20} strokeWidth={1.7} /></div>
-              <h2 className="text-base font-semibold leading-6 tracking-[-0.015em]">Create your first mock project</h2>
-              <p className="mx-auto mt-1.5 max-w-[330px] text-sm leading-[21px] text-[var(--text-secondary)]">Group related endpoints together and expose them through one callable base URL.</p>
-              <Button className="mt-5" onClick={() => setDialogIsOpen(true)} size="small" variant="primary"><Plus aria-hidden="true" size={12} strokeWidth={2} />New project</Button>
-            </div>
-          </section>
-        ) : (
-          <section className="mx-auto mt-8 w-full max-w-[1120px] overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)]">
-            <div className="grid grid-cols-[minmax(220px,1fr)_100px_minmax(190px,0.7fr)_120px_36px] items-center gap-4 border-b border-[var(--border-default)] bg-[var(--bg-subtle)] px-4 py-2 text-[11px] font-semibold text-[var(--text-muted)]"><span>Name</span><span>Endpoints</span><span>Base URL</span><span>Updated</span><span className="sr-only">Actions</span></div>
-            {projects.map((project) => (
-              <div className="grid min-h-16 cursor-pointer grid-cols-[minmax(220px,1fr)_100px_minmax(190px,0.7fr)_120px_36px] items-center gap-4 border-b border-[var(--border-default)] px-4 last:border-b-0 hover:bg-[var(--bg-hover)]" key={project.id} onClick={() => navigate(`/app/projects/${project.id}`)} onKeyDown={(event) => { if (event.key === 'Enter') navigate(`/app/projects/${project.id}`) }} role="link" tabIndex={0}>
-                <div className="min-w-0"><div className="truncate text-[13px] font-semibold">{project.name}</div><div className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{project.description || 'No description'}</div></div>
-                <span className="text-xs text-[var(--text-secondary)]">{project.endpointCount}</span>
-                <code className="truncate font-mono text-xs text-[var(--text-secondary)]">/mock/{project.projectKey}</code>
-                <span className="text-xs text-[var(--text-secondary)]">{formatUpdatedAt(project.updatedAt)}</span>
-                <MoreActionsMenu items={[{ icon: <Pencil aria-hidden="true" size={13} />, label: 'Edit project', onSelect: () => setProjectToEdit(project) }, { danger: true, icon: <Trash2 aria-hidden="true" size={13} />, label: 'Delete project', onSelect: () => setProjectToDelete(project), separatorBefore: true }]} label={`More actions for ${project.name}`} />
+            {projectsQuery.isPending ? (
+              <section className="grid min-h-72 place-items-center py-20 text-sm text-[var(--text-muted)]">Loading projects…</section>
+            ) : projectsQuery.isError ? (
+              <section className="grid min-h-72 place-items-center py-12 text-center">
+                <Card className="w-full max-w-[400px] p-7"><p className="text-base font-semibold">Could not load projects</p><p className="mt-1.5 text-sm text-[var(--text-secondary)]">Make sure the Spring Boot API is running.</p><Button className="mt-5" onClick={() => projectsQuery.refetch()} size="small">Retry</Button></Card>
+              </section>
+            ) : projects.length === 0 ? (
+              <section className="py-10">
+                <Card className="w-full p-9 text-center">
+                  <div className="mx-auto mb-5 grid size-11 place-items-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-secondary)]"><AppIcon icon={FolderPlus} size={20} /></div>
+                  <h2 className="text-xl font-semibold tracking-[-0.025em]">Create your first mock project</h2>
+                  <p className="mx-auto mt-2 max-w-[360px] text-sm leading-6 text-[var(--text-secondary)]">Group related endpoints together and expose them through one callable base URL.</p>
+                  <Button className="mt-6" onClick={() => setDialogIsOpen(true)} variant="primary"><AppIcon icon={Plus} size={16} />New project</Button>
+                </Card>
+              </section>
+            ) : (
+              <section className="pt-9">
+                <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+                  <div><h2 className="text-base font-semibold tracking-[-0.015em]">Your projects</h2><p className="mt-0.5 text-xs text-[var(--text-muted)]">{projects.length} {projects.length === 1 ? 'project' : 'projects'} in this workspace</p></div>
+                  <Button className="shrink-0" onClick={() => setDialogIsOpen(true)} variant="primary"><AppIcon icon={Plus} size={16} />New project</Button>
+                </div>
+                <Card className="overflow-hidden">
+              <div className="hidden grid-cols-[minmax(220px,1fr)_120px_minmax(190px,0.7fr)_110px_40px] items-center gap-4 border-b border-[var(--border-default)] bg-[var(--bg-subtle)] px-5 py-2.5 text-[11px] font-medium text-[var(--text-muted)] md:grid">
+                <span>Name</span>
+                <span>Endpoints</span>
+                <span>Base URL</span>
+                <span>Updated</span>
+                <span className="sr-only">Actions</span>
               </div>
-            ))}
-          </section>
-        )}
+              {projects.map((project, index) => (
+                <article className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_40px] items-center gap-4 px-5 py-4 outline-none transition-colors hover:bg-[var(--bg-hover)] focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--border-strong)] md:grid-cols-[minmax(220px,1fr)_120px_minmax(190px,0.7fr)_110px_40px] ${index < projects.length - 1 ? 'border-b border-[var(--border-default)]' : ''}`} key={project.id} onClick={() => navigate(`/app/projects/${project.id}`)} onKeyDown={(event) => { if (event.key === 'Enter') navigate(`/app/projects/${project.id}`) }} role="link" tabIndex={0}>
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-semibold tracking-[-0.01em]">{project.name}</h3>
+                    <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{project.description || 'A configurable mock API project.'}</p>
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px] text-[var(--text-secondary)] md:hidden">
+                      <span>{project.endpointCount} {project.endpointCount === 1 ? 'endpoint' : 'endpoints'}</span>
+                      <code>/mock/{project.projectKey}</code>
+                      <span className="opacity-65">{formatUpdatedAt(project.updatedAt)}</span>
+                    </div>
+                  </div>
+                  <span className="hidden text-xs text-[var(--text-secondary)] md:block">{project.endpointCount}</span>
+                  <code className="hidden truncate font-mono text-xs text-[var(--text-secondary)] md:block">/mock/{project.projectKey}</code>
+                  <span className="hidden text-xs text-[var(--text-muted)] md:block">{formatUpdatedAt(project.updatedAt)}</span>
+                  <MoreActionsMenu className="shrink-0" items={[{ icon: <AppIcon icon={Pencil} size={13} />, label: 'Edit project', onSelect: () => setProjectToEdit(project) }, { danger: true, icon: <AppIcon icon={Trash2} size={13} />, label: 'Delete project', onSelect: () => setProjectToDelete(project), separatorBefore: true }]} label={`More actions for ${project.name}`} />
+                </article>
+              ))}
+                </Card>
+              </section>
+            )}
+          </div>
+
+          <aside className="space-y-4 lg:sticky lg:top-8">
+            <Card className="overflow-hidden">
+              <div className="border-b border-[var(--border-default)] px-4 py-3.5"><h2 className="text-sm font-semibold">Documentation</h2><p className="mt-0.5 text-[11px] text-[var(--text-muted)]">Learn the core MockRelay workflows.</p></div>
+              <div className="divide-y divide-[var(--border-default)]">
+                {documentationLinks.map(({ description, href, icon: Icon, title }) => (
+                  <a className="group flex gap-3 px-4 py-3.5 transition-colors hover:bg-[var(--bg-hover)]" href={href} key={title} rel="noreferrer" target="_blank">
+                    <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-secondary)]"><AppIcon icon={Icon} size={13} /></span>
+                    <span className="min-w-0 flex-1"><span className="flex items-center gap-1.5 text-xs font-semibold">{title}<AppIcon className="text-[var(--text-muted)] opacity-0 transition-opacity group-hover:opacity-100" icon={SquareArrowOutUpRight} size={11} /></span><span className="mt-1 block text-[11px] leading-4 text-[var(--text-muted)]">{description}</span></span>
+                  </a>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <h2 className="text-sm font-semibold">Start from a template</h2>
+              <p className="mt-1 text-[11px] leading-4 text-[var(--text-muted)]">Create a project with realistic endpoints and response scenarios already configured.</p>
+              <Button className="mt-4 w-full" onClick={() => setDialogIsOpen(true)} size="small">Browse starter APIs</Button>
+            </Card>
+          </aside>
+        </div>
       </main>
 
       <CreateProjectDialog onCreate={handleCreate} onOpenChange={setDialogIsOpen} open={dialogIsOpen} />

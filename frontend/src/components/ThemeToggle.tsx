@@ -1,5 +1,6 @@
-import { Moon, Sun } from 'lucide-react'
+import { Moon, Sun } from 'runeicons-react'
 import { useEffect, useState } from 'react'
+import { AppIcon } from './ui/AppIcon'
 import { IconButton } from './ui/IconButton'
 
 type Theme = 'light' | 'dark'
@@ -36,25 +37,25 @@ export function ThemeToggle() {
         aria-pressed={theme === 'light'}
         className={
           theme === 'light'
-            ? 'bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm'
+            ? 'bg-[var(--text-primary)] text-[var(--bg-surface)] shadow-sm'
             : ''
         }
         label="Use light theme"
         onClick={() => setTheme('light')}
       >
-        <Sun aria-hidden="true" size={14} strokeWidth={1.8} />
+        <AppIcon icon={Sun} size={15} />
       </IconButton>
       <IconButton
         aria-pressed={theme === 'dark'}
         className={
           theme === 'dark'
-            ? 'bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm'
+            ? 'bg-[var(--text-primary)] text-[var(--bg-surface)] shadow-sm'
             : ''
         }
         label="Use dark theme"
         onClick={() => setTheme('dark')}
       >
-        <Moon aria-hidden="true" size={14} strokeWidth={1.8} />
+        <AppIcon icon={Moon} size={15} />
       </IconButton>
     </div>
   )
